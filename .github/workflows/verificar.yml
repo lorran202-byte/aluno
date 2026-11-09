@@ -10,31 +10,50 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Testar Firestore e página
+      - name: Teste de ponta a ponta (conta temporária, apagada no fim)
         run: |
+          set +e
           P=la-consultoria-67f79
           K=AIzaSyDhXUUUVSTZnUGa8n5hhYVzb9WExbZD1Ao
           B="https://firestore.googleapis.com/v1/projects/$P/databases/(default)/documents"
+          J='Content-Type: application/json'
+          T="teste$(date +%s)"
           {
-            echo "== ler publico/inexistente (esperado 404 NOT_FOUND)"
-            curl -s -w "\nHTTP %{http_code}\n" "$B/publico/teste-inexistente?key=$K"
-            echo "== criar publico sem login (esperado 403)"
-            curl -s -w "\nHTTP %{http_code}\n" -X PATCH -H 'Content-Type: application/json' -d '{"fields":{"dono":{"stringValue":"x"}}}' "$B/publico/teste?key=$K"
-            echo "== ler backup sem login (esperado 403)"
-            curl -s -w "\nHTTP %{http_code}\n" "$B/personal/x/backup/meta?key=$K"
-            echo "== auth configurado (esperado 400 MISSING_PASSWORD ou similar, nao CONFIGURATION_NOT_FOUND)"
-            curl -s -w "\nHTTP %{http_code}\n" -X POST -H 'Content-Type: application/json' -d '{"email":"teste@exemplo.com","returnSecureToken":true}' "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$K"
-            echo "== pagina"
-            sleep 60
+            echo "== 1 criar conta temporária"
+            R=$(curl -s -X POST -H "$J" -d "{\"email\":\"$T@teste-la.com\",\"password\":\"senha-teste-123\",\"returnSecureToken\":true}" "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=$K")
+            ID=$(echo "$R" | jq -r .idToken); UID_=$(echo "$R" | jq -r .localId)
+            echo "uid ok: $([ "$UID_" != null ] && echo sim || echo NAO: $R)"
+            echo "== 2 backup do dono (esperado 200)"
+            curl -s -o /dev/null -w "HTTP %{http_code}\n" -X PATCH -H "$J" -H "Authorization: Bearer $ID" -d '{"fields":{"d":{"stringValue":"x"}}}' "$B/personal/$UID_/backup/p0?key=$K"
+            echo "== 3 backup de outro uid (esperado 403)"
+            curl -s -o /dev/null -w "HTTP %{http_code}\n" -X PATCH -H "$J" -H "Authorization: Bearer $ID" -d '{"fields":{"d":{"stringValue":"x"}}}' "$B/personal/outro/backup/p0?key=$K"
+            echo "== 4 publicar treino (esperado 200)"
+            curl -s -o /dev/null -w "HTTP %{http_code}\n" -X PATCH -H "$J" -H "Authorization: Bearer $ID" -d "{\"fields\":{\"dono\":{\"stringValue\":\"$UID_\"},\"dados\":{\"stringValue\":\"{}\"}}}" "$B/publico/$T?key=$K"
+            echo "== 5 aluno lê treino sem login (esperado 200)"
+            curl -s -o /dev/null -w "HTTP %{http_code}\n" "$B/publico/$T?key=$K"
+            echo "== 6 aluno registra série sem login (esperado 200)"
+            curl -s -o /dev/null -w "HTTP %{http_code}\n" -X POST -H "$J" -d '{"fields":{"dados":{"stringValue":"{\"series\":[]}"},"criadoEm":{"stringValue":"1"}}}' "$B/publico/$T/registros?key=$K"
+            echo "== 7 aluno tenta alterar treino (esperado 403)"
+            curl -s -o /dev/null -w "HTTP %{http_code}\n" -X PATCH -H "$J" -d '{"fields":{"dono":{"stringValue":"hacker"}}}' "$B/publico/$T?key=$K"
+            echo "== 8 dono lista registros (esperado 1)"
+            L=$(curl -s -H "Authorization: Bearer $ID" "$B/publico/$T/registros?key=$K"); echo "$L" | jq '.documents | length'
+            echo "== 9 limpeza"
+            for d in $(echo "$L" | jq -r '.documents[].name'); do curl -s -o /dev/null -w "reg %{http_code}\n" -X DELETE -H "Authorization: Bearer $ID" "https://firestore.googleapis.com/v1/$d?key=$K"; done
+            curl -s -o /dev/null -w "treino %{http_code}\n" -X DELETE -H "Authorization: Bearer $ID" "$B/publico/$T?key=$K"
+            curl -s -o /dev/null -w "backup %{http_code}\n" -X DELETE -H "Authorization: Bearer $ID" "$B/personal/$UID_/backup/p0?key=$K"
+            curl -s -o /dev/null -w "conta %{http_code}\n" -X POST -H "$J" -d "{\"idToken\":\"$ID\"}" "https://identitytoolkit.googleapis.com/v1/accounts:delete?key=$K"
+            echo "== 10 página"
             curl -s -o /dev/null -w "HTTP %{http_code}\n" "https://lorran202-byte.github.io/aluno/"
+            curl -s "https://lorran202-byte.github.io/aluno/config.js"
           } > resultado.txt 2>&1
           cat resultado.txt
       - name: Publicar resultado
         run: |
           git config user.name "verificador"; git config user.email "verificador@users.noreply.github.com"
+          cp resultado.txt /tmp/resultado.txt
           git checkout --orphan verificacao
-          git rm -rfq --cached . ; mkdir -p /tmp/r; cp resultado.txt /tmp/r/
+          git rm -rfq --cached .
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp /tmp/r/resultado.txt .
+          cp /tmp/resultado.txt .
           git add resultado.txt; git commit -qm "verificação $(date -u +%FT%TZ)"
           git push -f origin verificacao
