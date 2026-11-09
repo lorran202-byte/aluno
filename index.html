@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E0E10">
+<meta name="robots" content="noindex">
+<title>Meu treino</title>
+<style>
+  :root { --bg:#0E0E10; --card:#18181B; --card2:#222226; --txt:#F4F2EC; --sub:#A3A1A8; --ouro:#D4AF37; --ok:#3DBE74; --erro:#FF6B6B; --linha:#2C2C31; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin:0; background:var(--bg); color:var(--txt); font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  body { padding-bottom: 120px; }
+  header { padding: 20px 16px 8px; }
+  .personal { color: var(--ouro); font-weight: 700; letter-spacing: .02em; font-size: 14px; text-transform: uppercase; }
+  h1 { margin: 4px 0 2px; font-size: 26px; }
+  .sub { color: var(--sub); font-size: 14px; }
+  .abas { display:flex; gap:8px; overflow-x:auto; padding: 12px 16px; position: sticky; top: 0; background: var(--bg); z-index: 5; scrollbar-width: none; }
+  .abas::-webkit-scrollbar { display:none }
+  .aba { flex: 0 0 auto; border:1px solid var(--linha); background: var(--card); color: var(--txt); border-radius: 999px; padding: 8px 16px; font-size: 15px; }
+  .aba.on { background: var(--ouro); color: #111; border-color: var(--ouro); font-weight: 700; }
+  main { padding: 0 16px; }
+  .obsficha { background: var(--card); border-radius: 14px; padding: 12px 14px; color: var(--sub); font-size: 14px; margin-bottom: 12px; white-space: pre-line; }
+  .ex { background: var(--card); border-radius: 16px; margin-bottom: 14px; overflow: hidden; }
+  .ex.feito { outline: 2px solid var(--ok); }
+  .fotos { display:flex; background:#fff; height: 170px; }
+  .fotos img { flex:1; min-width:0; object-fit: contain; height: 100%; }
+  .corpo { padding: 12px 14px 14px; }
+  .num { color: var(--ouro); font-weight: 800; margin-right: 6px; }
+  .nome { font-size: 18px; font-weight: 700; }
+  .presc { color: var(--sub); font-size: 14px; margin-top: 2px; }
+  .obs { font-size: 14px; margin-top: 6px; color: var(--txt); background: var(--card2); border-radius: 10px; padding: 8px 10px; }
+  .video { display:inline-block; margin-top: 8px; color: var(--ouro); text-decoration: none; font-weight: 600; font-size: 15px; }
+  .series { margin-top: 10px; display: grid; gap: 8px; }
+  .serie { display: grid; grid-template-columns: 44px 1fr 1fr; gap: 8px; align-items: center; }
+  .chk { height: 44px; border-radius: 12px; border: 2px solid var(--linha); background: var(--card2); color: var(--sub); font-weight: 700; font-size: 15px; }
+  .chk.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .serie label { display:flex; align-items:center; background: var(--card2); border-radius: 12px; padding: 0 10px; height: 44px; gap: 6px; color: var(--sub); font-size: 13px; }
+  .serie input { width: 100%; min-width: 0; background: transparent; border: 0; color: var(--txt); font-size: 17px; outline: none; }
+  .ultima { color: var(--sub); font-size: 12px; margin-top: 6px; }
+  .rodape { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 30%); z-index: 6; }
+  .btn { width: 100%; height: 52px; border: 0; border-radius: 14px; background: var(--ouro); color: #111; font-size: 17px; font-weight: 800; }
+  .btn:disabled { opacity: .5; }
+  .descanso { position: fixed; left: 16px; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); background: var(--card2); border: 1px solid var(--ouro); border-radius: 16px; padding: 10px 14px; display: none; align-items: center; gap: 12px; z-index: 7; }
+  .descanso.on { display:flex; }
+  .descanso .t { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ouro); }
+  .descanso button { margin-left: auto; background: transparent; color: var(--txt); border: 1px solid var(--linha); border-radius: 10px; padding: 8px 12px; font-size: 14px; }
+  .msg { text-align: center; padding: 60px 24px; color: var(--sub); }
+  .msg h2 { color: var(--txt); }
+  .ok { color: var(--ok); }
+  .zap { display:inline-block; margin-top: 12px; color: var(--ouro); }
+  .aviso { background: #3A2A10; color: #F5D58A; border-radius: 12px; padding: 10px 12px; font-size: 14px; margin: 0 16px 8px; }
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+<div id="app"><div class="msg">Carregando seu treino…</div></div>
+<div class="descanso" id="descanso"><div><div class="sub">Descanso</div><div class="t" id="tempo">0:00</div></div><button id="pular">Pular</button></div>
+<script>
+(function () {
+  "use strict";
+  var cfg = window.LA_CONFIG || {};
+  var hash = decodeURIComponent(location.hash.replace(/^#/, ""));
+  var partes = hash.split("&");
+  var token = partes[0];
+  partes.slice(1).forEach(function (p) { var kv = p.split("="); if (kv[0] === "p") cfg.projeto = kv[1]; if (kv[0] === "k") cfg.chave = kv[1]; });
+  var app = document.getElementById("app");
+  var BASE = "https://firestore.googleapis.com/v1/projects/" + cfg.projeto + "/databases/(default)/documents/publico/" + token;
+  var KEY = "?key=" + encodeURIComponent(cfg.chave || "");
+  var treino = null, fichaAtual = 0, ultimas = {}, inicio = Date.now();
+
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function erro(titulo, texto) { app.innerHTML = '<div class="msg"><h2>' + esc(titulo) + "</h2><p>" + esc(texto) + "</p></div>"; }
+  function chaveLocal() { return "la-" + token + "-" + (treino ? treino.fichas[fichaAtual].id : ""); }
+  function lerLocal() { try { return JSON.parse(localStorage.getItem(chaveLocal()) || "{}"); } catch (e) { return {}; } }
+  function salvarLocal(d) { try { localStorage.setItem(chaveLocal(), JSON.stringify(d)); } catch (e) {} }
+  function dataBr(iso) { var p = (iso || "").split("-"); return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : iso; }
+
+  if (!token || !cfg.projeto || !cfg.chave) { erro("Link incompleto", "Peça um novo link para o seu personal."); return; }
+
+  function carregar() {
+    fetch(BASE + KEY).then(function (r) {
+      if (r.status === 404 || r.status === 403) throw new Error("desativado");
+      if (!r.ok) throw new Error("rede");
+      return r.json();
+    }).then(function (doc) {
+      treino = JSON.parse(doc.fields.dados.stringValue);
+      document.title = "Treino de " + treino.aluno;
+      try { fichaAtual = Math.min(parseInt(localStorage.getItem("la-" + token + "-aba") || "0", 10) || 0, treino.fichas.length - 1); } catch (e) {}
+      desenhar();
+      return fetch(BASE + "/registros" + KEY + "&pageSize=100").then(function (r) { return r.ok ? r.json() : {}; }).then(function (lst) {
+        (lst.documents || []).map(function (d) { try { return JSON.parse(d.fields.dados.stringValue); } catch (e) { return null; } })
+          .filter(Boolean).sort(function (a, b) { return a.fim - b.fim; })
+          .forEach(function (r) { r.series.forEach(function (s) { if (s.carga) ultimas[s.itemId] = { carga: s.carga, reps: s.reps, quando: r.fim }; }); });
+        desenhar();
+      }).catch(function () {});
+    }).catch(function (e) {
+      if (e.message === "desativado") erro("Link desativado", "Este treino não está mais disponível. Fale com o seu personal.");
+      else erro("Sem conexão", "Não consegui carregar o treino. Verifique a internet e toque para tentar de novo.");
+      app.onclick = function () { app.onclick = null; carregar(); };
+    });
+  }
+
+  function desenhar() {
+    if (!treino || !treino.fichas.length) { erro("Treino vazio", "Seu personal ainda não montou as fichas."); return; }
+    var f = treino.fichas[fichaAtual], loc = lerLocal(), h = "";
+    h += '<header><div class="personal">' + esc(treino.personal || "Seu personal") + "</div><h1>Treino de " + esc(treino.aluno) + "</h1>";
+    if (treino.troca) h += '<div class="sub">Troca do treino: ' + dataBr(treino.troca) + "</div>";
+    h += "</header>";
+    h += '<nav class="abas">' + treino.fichas.map(function (x, i) { return '<button class="aba' + (i === fichaAtual ? " on" : "") + '" data-aba="' + i + '">' + esc(x.nome) + "</button>"; }).join("") + "</nav>";
+    h += "<main>";
+    if (f.obs) h += '<div class="obsficha">' + esc(f.obs) + "</div>";
+    f.itens.forEach(function (it, n) {
+      var feitas = 0;
+      var linhas = "";
+      for (var s = 1; s <= Math.max(1, it.series); s++) {
+        var k = it.id + "_" + s, v = loc[k] || {};
+        if (v.ok) feitas++;
+        var cargaSug = v.carga != null ? v.carga : ((ultimas[it.id] && ultimas[it.id].carga) || it.carga || "");
+        var repsSug = v.reps != null ? v.reps : it.reps;
+        linhas += '<div class="serie"><button class="chk' + (v.ok ? " on" : "") + '" data-chk="' + k + '" data-desc="' + (it.descanso || 0) + '">' + s + "ª</button>" +
+          '<label>kg<input inputmode="decimal" data-carga="' + k + '" value="' + esc(cargaSug) + '"></label>' +
+          '<label>reps<input data-reps="' + k + '" value="' + esc(repsSug) + '"></label></div>';
+      }
+      h += '<section class="ex' + (feitas >= it.series ? " feito" : "") + '">';
+      if (it.fotos && it.fotos.length) h += '<div class="fotos">' + it.fotos.map(function (u) { return '<img loading="lazy" alt="" src="' + esc(u) + '" onerror="this.remove()">'; }).join("") + "</div>";
+      h += '<div class="corpo"><div class="nome"><span class="num">' + (n + 1) + "</span>" + esc(it.nome) + "</div>";
+      h += '<div class="presc">' + it.series + " × " + esc(it.reps || "—") + (it.descanso ? " · descanso " + it.descanso + "s" : "") + (it.carga ? " · " + esc(it.carga) + " kg" : "") + "</div>";
+      if (it.obs) h += '<div class="obs">' + esc(it.obs) + "</div>";
+      if (it.video) h += '<a class="video" target="_blank" rel="noopener" href="' + esc(it.video) + '">▶ ' + (it.videoEscolhido ? "Ver vídeo da execução" : "Vídeos da execução no YouTube") + "</a>";
+      h += '<div class="series">' + linhas + "</div>";
+      if (ultimas[it.id]) h += '<div class="ultima">Última vez: ' + esc(ultimas[it.id].carga) + " kg × " + esc(ultimas[it.id].reps) + "</div>";
+      h += "</div></section>";
+    });
+    var total = Object.keys(loc).filter(function (k) { return loc[k].ok; }).length;
+    h += "</main>";
+    if (treino.telefone) h += '<div class="msg" style="padding:16px"><a class="zap" target="_blank" rel="noopener" href="https://wa.me/' + whats(treino.telefone) + '">Falar com o personal no WhatsApp</a></div>';
+    h += '<div class="rodape"><button class="btn" id="concluir"' + (total ? "" : " disabled") + ">Concluir treino" + (total ? " (" + total + " séries)" : "") + "</button></div>";
+    app.innerHTML = h;
+  }
+
+  function whats(t) { var d = String(t).replace(/\D/g, ""); if (d.length === 10 || d.length === 11) d = "55" + d; return d; }
+
+  app.addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    if (b.dataset.aba != null) {
+      fichaAtual = parseInt(b.dataset.aba, 10);
+      try { localStorage.setItem("la-" + token + "-aba", fichaAtual); } catch (x) {}
+      desenhar(); window.scrollTo(0, 0); return;
+    }
+    if (b.dataset.chk) {
+      var loc = lerLocal(), k = b.dataset.chk, v = loc[k] || {};
+      v.ok = !v.ok;
+      if (!loc._inicio) loc._inicio = Date.now();
+      v.carga = (document.querySelector('[data-carga="' + k + '"]') || {}).value || "";
+      v.reps = (document.querySelector('[data-reps="' + k + '"]') || {}).value || "";
+      loc[k] = v; salvarLocal(loc);
+      var y = window.scrollY; desenhar(); window.scrollTo(0, y);
+      if (v.ok && +b.dataset.desc > 0) descanso(+b.dataset.desc);
+      return;
+    }
+    if (b.id === "concluir") concluir(b);
+  });
+  app.addEventListener("input", function (e) {
+    var el = e.target, k = el.dataset.carga || el.dataset.reps;
+    if (!k) return;
+    var loc = lerLocal(), v = loc[k] || {};
+    if (el.dataset.carga) v.carga = el.value; else v.reps = el.value;
+    loc[k] = v; salvarLocal(loc);
+  });
+
+  // ---- descanso
+  var fimDescanso = 0, relogio = null, painel = document.getElementById("descanso"), tempo = document.getElementById("tempo");
+  function descanso(seg) {
+    fimDescanso = Date.now() + seg * 1000; painel.classList.add("on"); tick();
+    clearInterval(relogio); relogio = setInterval(tick, 250);
+  }
+  function tick() {
+    var r = Math.max(0, Math.round((fimDescanso - Date.now()) / 1000));
+    tempo.textContent = Math.floor(r / 60) + ":" + String(r % 60).padStart(2, "0");
+    if (r <= 0) { pararDescanso(); try { navigator.vibrate && navigator.vibrate([300, 150, 300]); } catch (e) {} bip(); }
+  }
+  function pararDescanso() { clearInterval(relogio); painel.classList.remove("on"); }
+  document.getElementById("pular").onclick = pararDescanso;
+  function bip() {
+    try { var c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain();
+      o.frequency.value = 880; o.connect(g); g.connect(c.destination); g.gain.value = 0.2; o.start(); o.stop(c.currentTime + 0.35); } catch (e) {}
+  }
+
+  // ---- concluir
+  function concluir(b) {
+    var f = treino.fichas[fichaAtual], loc = lerLocal(), series = [];
+    f.itens.forEach(function (it) {
+      for (var s = 1; s <= Math.max(1, it.series); s++) {
+        var v = loc[it.id + "_" + s];
+        if (v && v.ok) series.push({ itemId: it.id, exercicio: it.nome, serie: s, reps: String(v.reps || ""), carga: String(v.carga || "") });
+      }
+    });
+    if (!series.length) return;
+    var reg = { v: 1, fichaId: f.id, fichaNome: f.nome, inicio: loc._inicio || inicio, fim: Date.now(), series: series };
+    b.disabled = true; b.textContent = "Enviando…";
+    fetch(BASE + "/registros" + KEY, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { dados: { stringValue: JSON.stringify(reg) }, criadoEm: { stringValue: String(Date.now()) } } })
+    }).then(function (r) {
+      if (!r.ok) throw new Error();
+      try { localStorage.removeItem(chaveLocal()); } catch (e) {}
+      series.forEach(function (s) { if (s.carga) ultimas[s.itemId] = { carga: s.carga, reps: s.reps, quando: Date.now() }; });
+      pararDescanso();
+      app.innerHTML = '<div class="msg"><h2 class="ok">Treino concluído! 💪</h2><p>' + series.length + " séries registradas em " + esc(f.nome) + ". Seu personal já recebe.</p>" +
+        '<button class="btn" id="voltar" style="margin-top:20px">Voltar ao treino</button></div>';
+      document.getElementById("voltar").onclick = function () { desenhar(); window.scrollTo(0, 0); };
+    }).catch(function () {
+      b.disabled = false; b.textContent = "Sem internet: toque para tentar de novo";
+    });
+  }
+
+  carregar();
+})();
+</script>
+</body>
+</html>

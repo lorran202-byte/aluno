@@ -1,0 +1,40 @@
+name: Verificar Firebase
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testar Firestore e página
+        run: |
+          P=la-consultoria-67f79
+          K=AIzaSyDhXUUUVSTZnUGa8n5hhYVzb9WExbZD1Ao
+          B="https://firestore.googleapis.com/v1/projects/$P/databases/(default)/documents"
+          {
+            echo "== ler publico/inexistente (esperado 404 NOT_FOUND)"
+            curl -s -w "\nHTTP %{http_code}\n" "$B/publico/teste-inexistente?key=$K"
+            echo "== criar publico sem login (esperado 403)"
+            curl -s -w "\nHTTP %{http_code}\n" -X PATCH -H 'Content-Type: application/json' -d '{"fields":{"dono":{"stringValue":"x"}}}' "$B/publico/teste?key=$K"
+            echo "== ler backup sem login (esperado 403)"
+            curl -s -w "\nHTTP %{http_code}\n" "$B/personal/x/backup/meta?key=$K"
+            echo "== auth configurado (esperado 400 MISSING_PASSWORD ou similar, nao CONFIGURATION_NOT_FOUND)"
+            curl -s -w "\nHTTP %{http_code}\n" -X POST -H 'Content-Type: application/json' -d '{"email":"teste@exemplo.com","returnSecureToken":true}' "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$K"
+            echo "== pagina"
+            sleep 60
+            curl -s -o /dev/null -w "HTTP %{http_code}\n" "https://lorran202-byte.github.io/aluno/"
+          } > resultado.txt 2>&1
+          cat resultado.txt
+      - name: Publicar resultado
+        run: |
+          git config user.name "verificador"; git config user.email "verificador@users.noreply.github.com"
+          git checkout --orphan verificacao
+          git rm -rfq --cached . ; mkdir -p /tmp/r; cp resultado.txt /tmp/r/
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp /tmp/r/resultado.txt .
+          git add resultado.txt; git commit -qm "verificação $(date -u +%FT%TZ)"
+          git push -f origin verificacao
