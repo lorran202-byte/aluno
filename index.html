@@ -6,6 +6,13 @@
 <meta name="theme-color" content="#0E0E10">
 <meta name="robots" content="noindex">
 <title>Meu treino</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icone-192.png">
+<link rel="apple-touch-icon" href="icone-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Meu treino">
 <style>
   :root { --bg:#0E0E10; --card:#18181B; --card2:#222226; --txt:#F4F2EC; --sub:#A3A1A8; --ouro:#D4AF37; --ok:#3DBE74; --erro:#FF6B6B; --linha:#2C2C31; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -44,6 +51,14 @@
   .folha .dica { color: var(--sub); font-size: 13px; }
   .folha .acoes { display: grid; gap: 8px; margin-top: 16px; }
   .btn.sec { background: transparent; color: var(--txt); border: 1px solid var(--linha); }
+  .faixa { margin: 0 16px 10px; background: #2A2410; border: 1px solid var(--ouro); border-radius: 14px; padding: 12px 14px; display:flex; align-items:center; gap: 10px; font-size: 14px; }
+  .faixa button { margin-left:auto; flex:0 0 auto; background: var(--ouro); color:#111; border:0; border-radius: 10px; padding: 8px 14px; font-weight: 700; font-size: 14px; }
+  .faixa.fina { background: var(--card); border-color: var(--linha); color: var(--sub); }
+  .perg { margin-top: 14px; font-size: 15px; }
+  .simnao { display:grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+  .simnao button { height: 42px; border-radius: 10px; border: 1px solid var(--linha); background: var(--card2); color: var(--txt); font-size: 15px; font-weight: 700; }
+  .simnao button.on { background: var(--ouro); border-color: var(--ouro); color: #111; }
+  .folha input[type=text] { width: 100%; margin-top: 6px; background: var(--card2); color: var(--txt); border: 1px solid var(--linha); border-radius: 12px; padding: 11px 12px; font: inherit; }
   .abrir { margin-left:auto; background:transparent; border:0; color:var(--sub); font-size:13px; padding:6px 0 6px 8px; }
   .fotos { display:flex; background:#fff; height: 170px; }
   .fotos img { flex:1; min-width:0; object-fit: contain; height: 100%; }
@@ -88,6 +103,22 @@
   <textarea id="comentario" maxlength="600" placeholder="Ex.: senti o joelho no agachamento, a carga do supino ficou leve…"></textarea>
   <div class="acoes"><button class="btn encerrar" id="enviar">Encerrar e enviar</button><button class="btn sec" id="cancelarFolha">Voltar ao treino</button></div>
 </div></div>
+<div class="folha" id="folhaAnam"><div class="cx">
+  <h3>Ficha de saúde</h3>
+  <div class="dica">Responda com sinceridade: só o seu personal vê. Leva 2 minutos.</div>
+  <div id="parq"></div>
+  <div class="lbl">Tem alguma doença? <span class="dica">(diabetes, pressão alta…)</span></div><input type="text" id="an_doencas">
+  <div class="lbl">Usa algum remédio?</div><input type="text" id="an_medicamentos">
+  <div class="lbl">Já fez cirurgia?</div><input type="text" id="an_cirurgias">
+  <div class="lbl">Lesões, dores ou limitações</div><input type="text" id="an_lesoes">
+  <div class="lbl">Fuma?</div><div class="simnao" id="an_fuma"><button data-v="1">Sim</button><button data-v="0">Não</button></div>
+  <div class="lbl">Bebida alcoólica <span class="dica">(com que frequência)</span></div><input type="text" id="an_bebida">
+  <div class="lbl">Sono <span class="dica">(horas por noite, dorme bem?)</span></div><input type="text" id="an_sono">
+  <div class="lbl">Já pratica alguma atividade física?</div><input type="text" id="an_atividade">
+  <div class="lbl">Quer contar mais alguma coisa?</div><textarea id="an_obs" maxlength="600"></textarea>
+  <div class="dica" id="an_aviso" style="color:var(--erro);margin-top:8px"></div>
+  <div class="acoes"><button class="btn" id="an_enviar">Enviar para o personal</button><button class="btn sec" id="an_fechar">Agora não</button></div>
+</div></div>
 <div class="descanso" id="descanso"><div><div class="sub">Descanso</div><div class="t" id="tempo">0:00</div></div><button id="pular">Pular</button></div>
 <script>
 (function () {
@@ -96,6 +127,7 @@
   var hash = decodeURIComponent(location.hash.replace(/^#/, ""));
   var partes = hash.split("&");
   var token = partes[0];
+  try { if (token) localStorage.setItem("la-token", token); else token = localStorage.getItem("la-token") || ""; } catch (e) {}
   partes.slice(1).forEach(function (p) { var kv = p.split("="); if (kv[0] === "p") cfg.projeto = kv[1]; if (kv[0] === "k") cfg.chave = kv[1]; });
   var app = document.getElementById("app");
   var BASE = "https://firestore.googleapis.com/v1/projects/" + cfg.projeto + "/databases/(default)/documents/publico/" + token;
@@ -120,11 +152,12 @@
       treino = JSON.parse(doc.fields.dados.stringValue);
       document.title = "Treino de " + treino.aluno;
       try { fichaAtual = Math.min(parseInt(localStorage.getItem("la-" + token + "-aba") || "0", 10) || 0, treino.fichas.length - 1); } catch (e) {}
+      if (fichaAtual < 0) fichaAtual = 0;
       desenhar();
       return fetch(BASE + "/registros" + KEY + "&pageSize=100").then(function (r) { return r.ok ? r.json() : {}; }).then(function (lst) {
         (lst.documents || []).map(function (d) { try { return JSON.parse(d.fields.dados.stringValue); } catch (e) { return null; } })
           .filter(Boolean).sort(function (a, b) { return a.fim - b.fim; })
-          .forEach(function (r) { r.series.forEach(function (s) { if (s.carga) ultimas[s.itemId] = { carga: s.carga, reps: s.reps, quando: r.fim }; }); });
+          .forEach(function (r) { (r.series || []).forEach(function (s) { if (s.carga) ultimas[s.itemId] = { carga: s.carga, reps: s.reps, quando: r.fim }; }); });
         desenhar();
       }).catch(function () {});
     }).catch(function (e) {
@@ -135,11 +168,17 @@
   }
 
   function desenhar() {
-    if (!treino || !treino.fichas.length) { erro("Treino vazio", "Seu personal ainda não montou as fichas."); return; }
-    var f = treino.fichas[fichaAtual], loc = lerLocal(), h = "";
+    if (!treino) return;
+    var h = "";
     h += '<header><div class="personal">' + esc(treino.personal || "Seu personal") + "</div><h1>Treino de " + esc(treino.aluno) + "</h1>";
     if (treino.troca) h += '<div class="sub">Troca do treino: ' + dataBr(treino.troca) + "</div>";
     h += "</header>";
+    var anamFeita = false; try { anamFeita = localStorage.getItem("la-" + token + "-anam") === "1"; } catch (e) {}
+    if (treino.pedirAnamnese && !anamFeita) h += '<div class="faixa"><div>Seu personal pediu a sua <b>ficha de saúde</b>.</div><button id="abrirAnam">Responder</button></div>';
+    if (instalar) h += '<div class="faixa fina"><div>Deixe o treino na tela do celular, como um app.</div><button id="instalarApp">Instalar</button></div>';
+    else if (ios && !instalado) h += '<div class="faixa fina"><div>Para virar app no iPhone: toque em <b>Compartilhar</b> e em <b>Adicionar à Tela de Início</b>.</div></div>';
+    if (!treino.fichas.length) { app.innerHTML = h + '<div class="msg"><h2>Treino a caminho</h2><p>Seu personal ainda não montou as fichas.</p></div>'; return; }
+    var f = treino.fichas[fichaAtual], loc = lerLocal();
     h += '<nav class="abas">' + treino.fichas.map(function (x, i) { return '<button class="aba' + (i === fichaAtual ? " on" : "") + '" data-aba="' + i + '">' + esc(x.nome) + "</button>"; }).join("") + "</nav>";
     h += '<div class="crono"><div><div class="rot">Tempo de treino</div><div class="val" id="crono">' + tempoTxt(loc._inicio) + "</div></div>" +
       "</div>";
@@ -195,6 +234,61 @@
     if (el && treino) el.textContent = tempoTxt(lerLocal()._inicio);
   }, 1000);
 
+  // ---- instalar como app
+  var instalar = null, ios = /iphone|ipad|ipod/i.test(navigator.userAgent),
+    instalado = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+  window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); instalar = e; if (treino) desenhar(); });
+  window.addEventListener("appinstalled", function () { instalar = null; instalado = true; if (treino) desenhar(); });
+  if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(function () {});
+
+  // ---- ficha de saúde (anamnese + PAR-Q)
+  var PARQ = [
+    "Algum médico já disse que você tem algum problema de coração e que só deveria fazer atividade física com supervisão de profissionais de saúde?",
+    "Você sente dores no peito quando pratica atividade física?",
+    "No último mês, você sentiu dores no peito quando praticou atividade física?",
+    "Você perde o equilíbrio por tontura ou já perdeu a consciência?",
+    "Você tem algum problema nos ossos ou articulações que poderia piorar com a atividade física?",
+    "Você toma algum remédio para pressão arterial ou problema de coração?",
+    "Sabe de alguma outra razão pela qual você não deveria praticar atividade física?"
+  ];
+  var respParq = [null, null, null, null, null, null, null], fuma = null, folhaAnam = document.getElementById("folhaAnam");
+  function desenharParq() {
+    document.getElementById("parq").innerHTML = PARQ.map(function (q, i) {
+      return '<div class="perg">' + (i + 1) + ". " + esc(q) + '</div><div class="simnao"><button data-q="' + i + '" data-v="1" class="' + (respParq[i] === true ? "on" : "") + '">Sim</button>' +
+        '<button data-q="' + i + '" data-v="0" class="' + (respParq[i] === false ? "on" : "") + '">Não</button></div>';
+    }).join("");
+  }
+  folhaAnam.addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.q != null) { respParq[+b.dataset.q] = b.dataset.v === "1"; desenharParq(); return; }
+    if (b.parentNode.id === "an_fuma") {
+      fuma = b.dataset.v === "1";
+      Array.prototype.forEach.call(b.parentNode.children, function (x) { x.classList.toggle("on", x === b); });
+      return;
+    }
+    if (b.id === "an_fechar") { folhaAnam.classList.remove("on"); return; }
+    if (b.id === "an_enviar") {
+      var aviso = document.getElementById("an_aviso");
+      if (respParq.indexOf(null) >= 0) { aviso.textContent = "Responda Sim ou Não nas 7 perguntas do começo."; return; }
+      aviso.textContent = "";
+      function v(id) { return document.getElementById(id).value.trim().slice(0, 400); }
+      var reg = { v: 1, tipo: "anamnese", parq: respParq, doencas: v("an_doencas"), medicamentos: v("an_medicamentos"), cirurgias: v("an_cirurgias"),
+        lesoes: v("an_lesoes"), fumante: fuma, bebida: v("an_bebida"), sono: v("an_sono"), atividadeAtual: v("an_atividade"), obs: v("an_obs") };
+      b.disabled = true; b.textContent = "Enviando…";
+      fetch(BASE + "/registros" + KEY, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { dados: { stringValue: JSON.stringify(reg) }, criadoEm: { stringValue: String(Date.now()) } } })
+      }).then(function (r) {
+        if (!r.ok) throw new Error();
+        try { localStorage.setItem("la-" + token + "-anam", "1"); } catch (x) {}
+        folhaAnam.classList.remove("on"); b.disabled = false; b.textContent = "Enviar para o personal";
+        desenhar();
+        var ok = document.createElement("div"); ok.className = "faixa"; ok.innerHTML = "<div>Ficha de saúde enviada. Obrigado! ✅</div>";
+        var hd = app.querySelector("header"); if (hd) hd.insertAdjacentElement("afterend", ok);
+      }).catch(function () { b.disabled = false; b.textContent = "Sem internet: toque para tentar de novo"; });
+    }
+  });
+
   function whats(t) { var d = String(t).replace(/\D/g, ""); if (d.length === 10 || d.length === 11) d = "55" + d; return d; }
 
   app.addEventListener("click", function (e) {
@@ -204,6 +298,11 @@
       fichaAtual = parseInt(b.dataset.aba, 10);
       try { localStorage.setItem("la-" + token + "-aba", fichaAtual); } catch (x) {}
       desenhar(); window.scrollTo(0, 0); return;
+    }
+    if (b.id === "abrirAnam") { desenharParq(); folhaAnam.classList.add("on"); return; }
+    if (b.id === "instalarApp") {
+      if (instalar) { instalar.prompt(); instalar.userChoice.then(function () { instalar = null; desenhar(); }); }
+      return;
     }
     if (b.id === "iniciar") {
       var li = lerLocal(); li._inicio = Date.now(); salvarLocal(li);
