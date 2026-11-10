@@ -32,6 +32,18 @@
   .crono .rot { color: var(--sub); font-size: 13px; }
   .crono .val { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ouro); }
   .crono button { margin-left:auto; background: var(--ouro); color:#111; border:0; border-radius: 10px; padding: 8px 14px; font-weight: 700; font-size: 14px; }
+  .folha { position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 20; display: none; align-items: flex-end; }
+  .folha.on { display: flex; }
+  .folha .cx { width: 100%; background: var(--card); border-radius: 22px 22px 0 0; padding: 20px 16px calc(16px + env(safe-area-inset-bottom)); max-height: 92vh; overflow-y: auto; }
+  .folha h3 { margin: 0 0 4px; font-size: 20px; }
+  .folha textarea { width: 100%; min-height: 96px; margin-top: 8px; background: var(--card2); color: var(--txt); border: 1px solid var(--linha); border-radius: 12px; padding: 10px 12px; font: inherit; resize: vertical; }
+  .notas { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; margin-top: 8px; }
+  .nota { height: 40px; border-radius: 10px; border: 1px solid var(--linha); background: var(--card2); color: var(--txt); font-size: 15px; font-weight: 700; padding: 0; }
+  .nota.on { background: var(--ouro); border-color: var(--ouro); color: #111; }
+  .folha .lbl { margin-top: 14px; font-weight: 700; font-size: 15px; }
+  .folha .dica { color: var(--sub); font-size: 13px; }
+  .folha .acoes { display: grid; gap: 8px; margin-top: 16px; }
+  .btn.sec { background: transparent; color: var(--txt); border: 1px solid var(--linha); }
   .abrir { margin-left:auto; background:transparent; border:0; color:var(--sub); font-size:13px; padding:6px 0 6px 8px; }
   .fotos { display:flex; background:#fff; height: 170px; }
   .fotos img { flex:1; min-width:0; object-fit: contain; height: 100%; }
@@ -66,6 +78,16 @@
 </head>
 <body>
 <div id="app"><div class="msg">Carregando seu treino…</div></div>
+<div class="folha" id="folha"><div class="cx">
+  <h3>Encerrar treino</h3>
+  <div class="dica" id="folhaResumo"></div>
+  <div class="lbl">Como foi o esforço?</div>
+  <div class="dica">1 = muito leve · 10 = máximo</div>
+  <div class="notas" id="notas"></div>
+  <div class="lbl">Comentário para o personal <span class="dica">(opcional)</span></div>
+  <textarea id="comentario" maxlength="600" placeholder="Ex.: senti o joelho no agachamento, a carga do supino ficou leve…"></textarea>
+  <div class="acoes"><button class="btn encerrar" id="enviar">Encerrar e enviar</button><button class="btn sec" id="cancelarFolha">Voltar ao treino</button></div>
+</div></div>
 <div class="descanso" id="descanso"><div><div class="sub">Descanso</div><div class="t" id="tempo">0:00</div></div><button id="pular">Pular</button></div>
 <script>
 (function () {
@@ -266,8 +288,30 @@
       }
       return;
     }
-    if (!window.confirm("Encerrar o treino?\n" + series.length + " séries · " + duracaoTxt(Date.now() - (loc._inicio || inicio)))) return;
-    var reg = { v: 1, fichaId: f.id, fichaNome: f.nome, inicio: loc._inicio || inicio, fim: Date.now(), series: series };
+    pendente = { f: f, series: series, inicio: loc._inicio || inicio };
+    esforco = 0; desenharNotas();
+    document.getElementById("comentario").value = "";
+    document.getElementById("folhaResumo").textContent = f.nome + " · " + series.length + " séries · " + duracaoTxt(Date.now() - pendente.inicio);
+    var be = document.getElementById("enviar"); be.disabled = false; be.textContent = "Encerrar e enviar";
+    folha.classList.add("on");
+  }
+
+  var folha = document.getElementById("folha"), pendente = null, esforco = 0;
+  function desenharNotas() {
+    var h = "";
+    for (var i = 1; i <= 10; i++) h += '<button class="nota' + (i === esforco ? " on" : "") + '" data-nota="' + i + '">' + i + "</button>";
+    document.getElementById("notas").innerHTML = h;
+  }
+  document.getElementById("notas").addEventListener("click", function (e) {
+    var n = e.target.closest("[data-nota]"); if (!n) return;
+    var v = parseInt(n.dataset.nota, 10); esforco = esforco === v ? 0 : v; desenharNotas();
+  });
+  document.getElementById("cancelarFolha").onclick = function () { folha.classList.remove("on"); };
+  document.getElementById("enviar").onclick = function () {
+    if (!pendente) return;
+    var b = this, f = pendente.f, series = pendente.series;
+    var reg = { v: 1, fichaId: f.id, fichaNome: f.nome, inicio: pendente.inicio, fim: Date.now(), series: series,
+      comentario: document.getElementById("comentario").value.trim().slice(0, 600), esforco: esforco };
     b.disabled = true; b.textContent = "Enviando…";
     fetch(BASE + "/registros" + KEY, {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -276,14 +320,15 @@
       if (!r.ok) throw new Error();
       try { localStorage.removeItem(chaveLocal()); } catch (e) {}
       series.forEach(function (s) { if (s.carga) ultimas[s.itemId] = { carga: s.carga, reps: s.reps, quando: Date.now() }; });
-      pararDescanso();
-      app.innerHTML = '<div class="msg"><h2 class="ok">Treino encerrado! 💪</h2><p>' + series.length + " séries registradas em " + esc(f.nome) + ".<br>Tempo de treino: <b>" + duracaoTxt(reg.fim - reg.inicio) + "</b>.<br>Seu personal já recebe.</p>" +
+      pararDescanso(); folha.classList.remove("on"); pendente = null;
+      app.innerHTML = '<div class="msg"><h2 class="ok">Treino encerrado! 💪</h2><p>' + series.length + " séries registradas em " + esc(f.nome) + ".<br>Tempo de treino: <b>" + duracaoTxt(reg.fim - reg.inicio) + "</b>." +
+        (reg.comentario ? "<br>Seu comentário foi enviado." : "") + "<br>Seu personal já recebe.</p>" +
         '<button class="btn" id="voltar" style="margin-top:20px">Voltar ao treino</button></div>';
       document.getElementById("voltar").onclick = function () { desenhar(); window.scrollTo(0, 0); };
     }).catch(function () {
       b.disabled = false; b.textContent = "Sem internet: toque para tentar de novo";
     });
-  }
+  };
 
   carregar();
 })();
