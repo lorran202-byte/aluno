@@ -51,6 +51,7 @@
   .rodape { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 30%); z-index: 6; }
   .btn { width: 100%; height: 52px; border: 0; border-radius: 14px; background: var(--ouro); color: #111; font-size: 17px; font-weight: 800; }
   .btn:disabled { opacity: .5; }
+  .btn.encerrar { background: var(--ok); color: #fff; }
   .descanso { position: fixed; left: 16px; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); background: var(--card2); border: 1px solid var(--ouro); border-radius: 16px; padding: 10px 14px; display: none; align-items: center; gap: 12px; z-index: 7; }
   .descanso.on { display:flex; }
   .descanso .t { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ouro); }
@@ -119,7 +120,7 @@
     h += "</header>";
     h += '<nav class="abas">' + treino.fichas.map(function (x, i) { return '<button class="aba' + (i === fichaAtual ? " on" : "") + '" data-aba="' + i + '">' + esc(x.nome) + "</button>"; }).join("") + "</nav>";
     h += '<div class="crono"><div><div class="rot">Tempo de treino</div><div class="val" id="crono">' + tempoTxt(loc._inicio) + "</div></div>" +
-      (loc._inicio ? "" : '<button id="iniciar">Iniciar treino</button>') + "</div>";
+      "</div>";
     h += "<main>";
     if (f.obs) h += '<div class="obsficha">' + esc(f.obs) + "</div>";
     f.itens.forEach(function (it, n) {
@@ -152,7 +153,9 @@
     var total = Object.keys(loc).filter(function (k) { return loc[k] && loc[k].ok; }).length;
     h += "</main>";
     if (treino.telefone) h += '<div class="msg" style="padding:16px"><a class="zap" target="_blank" rel="noopener" href="https://wa.me/' + whats(treino.telefone) + '">Falar com o personal no WhatsApp</a></div>';
-    h += '<div class="rodape"><button class="btn" id="concluir"' + (total ? "" : " disabled") + ">Concluir treino" + (total ? " (" + total + " séries)" : "") + "</button></div>";
+    h += '<div class="rodape">' + (loc._inicio
+      ? '<button class="btn encerrar" id="concluir">Encerrar treino' + (total ? " (" + total + " séries)" : "") + "</button>"
+      : '<button class="btn" id="iniciar">Iniciar treino</button>') + "</div>";
     app.innerHTML = h;
   }
 
@@ -257,7 +260,13 @@
         if (v && v.ok) series.push({ itemId: it.id, exercicio: it.nome, serie: s, reps: String(v.reps || ""), carga: String(v.carga || "") });
       }
     });
-    if (!series.length) return;
+    if (!series.length) {
+      if (window.confirm("Nenhum exercício foi marcado. Encerrar sem registrar o treino?")) {
+        delete loc._inicio; salvarLocal(loc); pararDescanso(); desenhar();
+      }
+      return;
+    }
+    if (!window.confirm("Encerrar o treino?\n" + series.length + " séries · " + duracaoTxt(Date.now() - (loc._inicio || inicio)))) return;
     var reg = { v: 1, fichaId: f.id, fichaNome: f.nome, inicio: loc._inicio || inicio, fim: Date.now(), series: series };
     b.disabled = true; b.textContent = "Enviando…";
     fetch(BASE + "/registros" + KEY, {
@@ -268,7 +277,7 @@
       try { localStorage.removeItem(chaveLocal()); } catch (e) {}
       series.forEach(function (s) { if (s.carga) ultimas[s.itemId] = { carga: s.carga, reps: s.reps, quando: Date.now() }; });
       pararDescanso();
-      app.innerHTML = '<div class="msg"><h2 class="ok">Treino concluído! 💪</h2><p>' + series.length + " séries registradas em " + esc(f.nome) + ".<br>Tempo de treino: <b>" + duracaoTxt(reg.fim - reg.inicio) + "</b>.<br>Seu personal já recebe.</p>" +
+      app.innerHTML = '<div class="msg"><h2 class="ok">Treino encerrado! 💪</h2><p>' + series.length + " séries registradas em " + esc(f.nome) + ".<br>Tempo de treino: <b>" + duracaoTxt(reg.fim - reg.inicio) + "</b>.<br>Seu personal já recebe.</p>" +
         '<button class="btn" id="voltar" style="margin-top:20px">Voltar ao treino</button></div>';
       document.getElementById("voltar").onclick = function () { desenhar(); window.scrollTo(0, 0); };
     }).catch(function () {
