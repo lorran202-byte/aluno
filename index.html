@@ -28,6 +28,10 @@
   .circ.on { background:var(--ok); border-color:var(--ok); color:#fff; }
   .ex.fechado .corpo { padding:14px; }
   .ex.fechado .nome { font-size:17px; }
+  .crono { display:flex; align-items:center; gap:10px; margin: 0 16px 10px; background: var(--card); border:1px solid var(--linha); border-radius: 14px; padding: 10px 14px; }
+  .crono .rot { color: var(--sub); font-size: 13px; }
+  .crono .val { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ouro); }
+  .crono button { margin-left:auto; background: var(--ouro); color:#111; border:0; border-radius: 10px; padding: 8px 14px; font-weight: 700; font-size: 14px; }
   .abrir { margin-left:auto; background:transparent; border:0; color:var(--sub); font-size:13px; padding:6px 0 6px 8px; }
   .fotos { display:flex; background:#fff; height: 170px; }
   .fotos img { flex:1; min-width:0; object-fit: contain; height: 100%; }
@@ -114,6 +118,8 @@
     if (treino.troca) h += '<div class="sub">Troca do treino: ' + dataBr(treino.troca) + "</div>";
     h += "</header>";
     h += '<nav class="abas">' + treino.fichas.map(function (x, i) { return '<button class="aba' + (i === fichaAtual ? " on" : "") + '" data-aba="' + i + '">' + esc(x.nome) + "</button>"; }).join("") + "</nav>";
+    h += '<div class="crono"><div><div class="rot">Tempo de treino</div><div class="val" id="crono">' + tempoTxt(loc._inicio) + "</div></div>" +
+      (loc._inicio ? "" : '<button id="iniciar">Iniciar treino</button>') + "</div>";
     h += "<main>";
     if (f.obs) h += '<div class="obsficha">' + esc(f.obs) + "</div>";
     f.itens.forEach(function (it, n) {
@@ -150,6 +156,20 @@
     app.innerHTML = h;
   }
 
+  function duracaoTxt(ms) {
+    var m = Math.max(1, Math.round(ms / 60000));
+    return m >= 60 ? Math.floor(m / 60) + " h " + (m % 60) + " min" : m + " min";
+  }
+  function tempoTxt(ini) {
+    if (!ini) return "0:00";
+    var t = Math.max(0, Math.floor((Date.now() - ini) / 1000)), hh = Math.floor(t / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60;
+    return (hh ? hh + ":" + String(mm).padStart(2, "0") : mm) + ":" + String(ss).padStart(2, "0");
+  }
+  setInterval(function () {
+    var el = document.getElementById("crono");
+    if (el && treino) el.textContent = tempoTxt(lerLocal()._inicio);
+  }, 1000);
+
   function whats(t) { var d = String(t).replace(/\D/g, ""); if (d.length === 10 || d.length === 11) d = "55" + d; return d; }
 
   app.addEventListener("click", function (e) {
@@ -159,6 +179,10 @@
       fichaAtual = parseInt(b.dataset.aba, 10);
       try { localStorage.setItem("la-" + token + "-aba", fichaAtual); } catch (x) {}
       desenhar(); window.scrollTo(0, 0); return;
+    }
+    if (b.id === "iniciar") {
+      var li = lerLocal(); li._inicio = Date.now(); salvarLocal(li);
+      var yi = window.scrollY; desenhar(); window.scrollTo(0, yi); return;
     }
     if (b.dataset.abrir) {
       abertos[b.dataset.abrir] = !abertos[b.dataset.abrir];
@@ -244,7 +268,7 @@
       try { localStorage.removeItem(chaveLocal()); } catch (e) {}
       series.forEach(function (s) { if (s.carga) ultimas[s.itemId] = { carga: s.carga, reps: s.reps, quando: Date.now() }; });
       pararDescanso();
-      app.innerHTML = '<div class="msg"><h2 class="ok">Treino concluído! 💪</h2><p>' + series.length + " séries registradas em " + esc(f.nome) + ". Seu personal já recebe.</p>" +
+      app.innerHTML = '<div class="msg"><h2 class="ok">Treino concluído! 💪</h2><p>' + series.length + " séries registradas em " + esc(f.nome) + ".<br>Tempo de treino: <b>" + duracaoTxt(reg.fim - reg.inicio) + "</b>.<br>Seu personal já recebe.</p>" +
         '<button class="btn" id="voltar" style="margin-top:20px">Voltar ao treino</button></div>';
       document.getElementById("voltar").onclick = function () { desenhar(); window.scrollTo(0, 0); };
     }).catch(function () {
