@@ -23,6 +23,12 @@
   .obsficha { background: var(--card); border-radius: 14px; padding: 12px 14px; color: var(--sub); font-size: 14px; margin-bottom: 12px; white-space: pre-line; }
   .ex { background: var(--card); border-radius: 16px; margin-bottom: 14px; overflow: hidden; }
   .ex.feito { outline: 2px solid var(--ok); }
+  .topo { display:flex; align-items:center; gap:12px; }
+  .circ { flex:0 0 auto; width:34px; height:34px; border-radius:50%; border:2px solid var(--sub); background:transparent; color:transparent; font-size:18px; font-weight:800; line-height:1; padding:0; }
+  .circ.on { background:var(--ok); border-color:var(--ok); color:#fff; }
+  .ex.fechado .corpo { padding:14px; }
+  .ex.fechado .nome { font-size:17px; }
+  .abrir { margin-left:auto; background:transparent; border:0; color:var(--sub); font-size:13px; padding:6px 0 6px 8px; }
   .fotos { display:flex; background:#fff; height: 170px; }
   .fotos img { flex:1; min-width:0; object-fit: contain; height: 100%; }
   .corpo { padding: 12px 14px 14px; }
@@ -67,7 +73,7 @@
   var app = document.getElementById("app");
   var BASE = "https://firestore.googleapis.com/v1/projects/" + cfg.projeto + "/databases/(default)/documents/publico/" + token;
   var KEY = "?key=" + encodeURIComponent(cfg.chave || "");
-  var treino = null, fichaAtual = 0, ultimas = {}, inicio = Date.now();
+  var treino = null, fichaAtual = 0, ultimas = {}, inicio = Date.now(), abertos = {};
 
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function erro(titulo, texto) { app.innerHTML = '<div class="msg"><h2>' + esc(titulo) + "</h2><p>" + esc(texto) + "</p></div>"; }
@@ -122,9 +128,14 @@
           '<label>kg<input inputmode="decimal" data-carga="' + k + '" value="' + esc(cargaSug) + '"></label>' +
           '<label>reps<input data-reps="' + k + '" value="' + esc(repsSug) + '"></label></div>';
       }
-      h += '<section class="ex' + (feitas >= it.series ? " feito" : "") + '">';
+      var feito = feitas >= Math.max(1, it.series), fechado = feito && !abertos[it.id];
+      var topo = '<div class="topo"><button class="circ' + (feito ? " on" : "") + '" data-ex="' + esc(it.id) + '" aria-label="' + (feito ? "Desmarcar exercício" : "Marcar exercício como concluído") + '">✓</button>' +
+        '<div class="nome"><span class="num">' + (n + 1) + "</span>" + esc(it.nome) + "</div>" +
+        (feito ? '<button class="abrir" data-abrir="' + esc(it.id) + '">' + (fechado ? "ver" : "fechar") + "</button>" : "") + "</div>";
+      h += '<section class="ex' + (feito ? " feito" : "") + (fechado ? " fechado" : "") + '">';
+      if (fechado) { h += '<div class="corpo">' + topo + "</div></section>"; return; }
       if (it.fotos && it.fotos.length) h += '<div class="fotos">' + it.fotos.map(function (u) { return '<img loading="lazy" alt="" src="' + esc(u) + '" onerror="this.remove()">'; }).join("") + "</div>";
-      h += '<div class="corpo"><div class="nome"><span class="num">' + (n + 1) + "</span>" + esc(it.nome) + "</div>";
+      h += '<div class="corpo">' + topo;
       h += '<div class="presc">' + it.series + " × " + esc(it.reps || "—") + (it.descanso ? " · descanso " + it.descanso + "s" : "") + (it.carga ? " · " + esc(it.carga) + " kg" : "") + "</div>";
       if (it.obs) h += '<div class="obs">' + esc(it.obs) + "</div>";
       if (it.video) h += '<a class="video" target="_blank" rel="noopener" href="' + esc(it.video) + '">▶ ' + (it.videoEscolhido ? "Ver vídeo da execução" : "Vídeos da execução no YouTube") + "</a>";
@@ -132,7 +143,7 @@
       if (ultimas[it.id]) h += '<div class="ultima">Última vez: ' + esc(ultimas[it.id].carga) + " kg × " + esc(ultimas[it.id].reps) + "</div>";
       h += "</div></section>";
     });
-    var total = Object.keys(loc).filter(function (k) { return loc[k].ok; }).length;
+    var total = Object.keys(loc).filter(function (k) { return loc[k] && loc[k].ok; }).length;
     h += "</main>";
     if (treino.telefone) h += '<div class="msg" style="padding:16px"><a class="zap" target="_blank" rel="noopener" href="https://wa.me/' + whats(treino.telefone) + '">Falar com o personal no WhatsApp</a></div>';
     h += '<div class="rodape"><button class="btn" id="concluir"' + (total ? "" : " disabled") + ">Concluir treino" + (total ? " (" + total + " séries)" : "") + "</button></div>";
@@ -148,6 +159,31 @@
       fichaAtual = parseInt(b.dataset.aba, 10);
       try { localStorage.setItem("la-" + token + "-aba", fichaAtual); } catch (x) {}
       desenhar(); window.scrollTo(0, 0); return;
+    }
+    if (b.dataset.abrir) {
+      abertos[b.dataset.abrir] = !abertos[b.dataset.abrir];
+      var y0 = window.scrollY; desenhar(); window.scrollTo(0, y0); return;
+    }
+    if (b.dataset.ex) {
+      // marca (ou desmarca) o exercício inteiro
+      var f0 = treino.fichas[fichaAtual], it0 = null, l0 = lerLocal();
+      f0.itens.forEach(function (x) { if (x.id === b.dataset.ex) it0 = x; });
+      if (!it0) return;
+      var n0 = Math.max(1, it0.series), todas = true, s0;
+      for (s0 = 1; s0 <= n0; s0++) if (!(l0[it0.id + "_" + s0] || {}).ok) todas = false;
+      for (s0 = 1; s0 <= n0; s0++) {
+        var k0 = it0.id + "_" + s0, v0 = l0[k0] || {};
+        var ec = document.querySelector('[data-carga="' + k0 + '"]'), er = document.querySelector('[data-reps="' + k0 + '"]');
+        if (ec) v0.carga = ec.value;
+        if (er) v0.reps = er.value;
+        if (v0.carga == null) v0.carga = (ultimas[it0.id] && ultimas[it0.id].carga) || it0.carga || "";
+        if (v0.reps == null) v0.reps = it0.reps || "";
+        v0.ok = !todas; l0[k0] = v0;
+      }
+      if (!l0._inicio) l0._inicio = Date.now();
+      abertos[it0.id] = false;
+      salvarLocal(l0);
+      var y1 = window.scrollY; desenhar(); window.scrollTo(0, y1); return;
     }
     if (b.dataset.chk) {
       var loc = lerLocal(), k = b.dataset.chk, v = loc[k] || {};
