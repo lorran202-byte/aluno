@@ -1,0 +1,39 @@
+== 1 criar conta temporária
+uid ok: sim
+== 2 backup do dono (esperado 200)
+HTTP 200
+== 3 backup de outro uid (esperado 403)
+HTTP 403
+== 4 publicar treino com POST + X-HTTP-Method-Override: PATCH, como o app (esperado 200)
+{
+  "name": "projects/la-consultoria-67f79/databases/(default)/documents/publico/teste1794309376",
+  "fields": {
+    "dados": {
+      "stringValue": "{}"
+    },
+    "dono": {
+      "stringValue": "P7uWdcAIxbYzwWw5SErYUDvAsRi2"
+    }
+  },
+  "createTime": "2026-11-10T11:16:19.087617Z",
+  "updateTime": "2026-11-10T11:16:19.087617Z"
+}
+
+HTTP 200
+== 5 aluno lê treino sem login (esperado 200)
+HTTP 200
+== 6 aluno registra série sem login (esperado 200)
+HTTP 200
+== 7 aluno tenta alterar treino (esperado 403)
+HTTP 403
+== 8 dono lista registros (esperado 1)
+1
+== 9 limpeza
+reg 200
+treino 200
+backup 200
+conta 200
+== 10 página
+HTTP 200
+// Preenchido com o projeto Firebase do personal (não é segredo: só dá acesso ao que as regras permitem).
+window.LA_CONFIG = { projeto: "la-consultoria-67f79", chave: "AIzaSyDhXUUUVSTZnUGa8n5hhYVzb9WExbZD1Ao" };
