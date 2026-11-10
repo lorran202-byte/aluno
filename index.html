@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0E0E10">
+<meta name="theme-color" content="#050506">
 <meta name="robots" content="noindex">
 <title>Meu treino</title>
 <link rel="manifest" href="manifest.json">
@@ -14,80 +14,145 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Meu treino">
 <style>
-  :root { --bg:#0E0E10; --card:#18181B; --card2:#222226; --txt:#F4F2EC; --sub:#A3A1A8; --ouro:#D4AF37; --ok:#3DBE74; --erro:#FF6B6B; --linha:#2C2C31; }
+  @font-face { font-family: "Outfit"; src: url("outfit_regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Outfit"; src: url("outfit_semibold.ttf") format("truetype"); font-weight: 600; font-display: swap; }
+  @font-face { font-family: "Outfit"; src: url("outfit_bold.ttf") format("truetype"); font-weight: 700 900; font-display: swap; }
+  :root {
+    --bg:#050506; --txt:#F2F2F4; --sub:#A9ACB4; --ouro:#D4AF37; --ouro2:#F1D98A; --ouro3:#8A6A12; --prata:#C9CCD3;
+    --ok:#3DBE74; --erro:#FF7A7A; --linha:rgba(255,255,255,.12);
+    --vidro: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.035));
+    --vidro2: rgba(255,255,255,.06);
+    --borda: linear-gradient(135deg, rgba(255,255,255,.34), rgba(255,255,255,.06) 45%, rgba(212,175,55,.38));
+    --metal: linear-gradient(180deg, #F6E3A1 0%, #D4AF37 48%, #B38A22 100%);
+  }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin:0; background:var(--bg); color:var(--txt); font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-  body { padding-bottom: 120px; }
-  header { padding: 20px 16px 8px; }
-  .personal { color: var(--ouro); font-weight: 700; letter-spacing: .02em; font-size: 14px; text-transform: uppercase; }
-  h1 { margin: 4px 0 2px; font-size: 26px; }
-  .sub { color: var(--sub); font-size: 14px; }
-  .abas { display:flex; gap:8px; overflow-x:auto; padding: 12px 16px; position: sticky; top: 0; background: var(--bg); z-index: 5; scrollbar-width: none; }
+  html { background: var(--bg); }
+  body { margin:0; color:var(--txt); font: 400 16px/1.4 "Outfit", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding-bottom: 128px; min-height: 100vh;
+    background:
+      radial-gradient(90vw 90vw at 100% -8%, rgba(212,175,55,.24), transparent 62%),
+      radial-gradient(85vw 85vw at -12% 42%, rgba(201,204,211,.11), transparent 62%),
+      radial-gradient(80vw 80vw at 78% 104%, rgba(212,175,55,.13), transparent 62%),
+      var(--bg);
+    background-attachment: fixed; }
+  button, input, textarea { font-family: inherit; }
+  /* vidro: preenchimento translúcido + borda com reflexo */
+  .vidro, .ex, .crono, .obsficha, .faixa, .folha .cx, .resumo, .stat {
+    position: relative; background: var(--vidro); border: 0; border-radius: 20px;
+    -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%);
+  }
+  .vidro::before, .ex::before, .crono::before, .obsficha::before, .faixa::before, .folha .cx::before, .resumo::before, .stat::before, .aba::before, .rodape .btn.sec::before {
+    content:""; position:absolute; inset:0; border-radius: inherit; padding: 1px; background: var(--borda); pointer-events:none;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  }
+  header { padding: 22px 16px 10px; display:flex; align-items:center; gap: 14px; }
+  .logo { flex:0 0 auto; width: 56px; height: 56px; border-radius: 50%; background: #000 center/cover no-repeat; box-shadow: 0 0 0 1.5px var(--ouro), 0 6px 22px rgba(212,175,55,.28); }
+  .personal { color: var(--ouro2); font-weight: 600; letter-spacing: .16em; font-size: 11px; text-transform: uppercase; }
+  h1 { margin: 2px 0 1px; font-size: 26px; font-weight: 700; letter-spacing: -.01em; line-height: 1.15; }
+  .sub { color: var(--sub); font-size: 13px; }
+  .abas { display:flex; gap:8px; overflow-x:auto; padding: 10px 16px 12px; position: sticky; top: 0; z-index: 5; scrollbar-width: none;
+    background: linear-gradient(rgba(5,5,6,.82), rgba(5,5,6,.55)); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
   .abas::-webkit-scrollbar { display:none }
-  .aba { flex: 0 0 auto; border:1px solid var(--linha); background: var(--card); color: var(--txt); border-radius: 999px; padding: 8px 16px; font-size: 15px; }
-  .aba.on { background: var(--ouro); color: #111; border-color: var(--ouro); font-weight: 700; }
+  .aba { position: relative; flex: 0 0 auto; border:0; background: var(--vidro2); color: var(--txt); border-radius: 999px; padding: 9px 18px; font-size: 15px; font-weight: 600; }
+  .aba.on { background: var(--metal); color: #14100A; box-shadow: 0 6px 18px rgba(212,175,55,.28); }
+  .aba.on::before { display:none; }
   main { padding: 0 16px; }
-  .obsficha { background: var(--card); border-radius: 14px; padding: 12px 14px; color: var(--sub); font-size: 14px; margin-bottom: 12px; white-space: pre-line; }
-  .ex { background: var(--card); border-radius: 16px; margin-bottom: 14px; overflow: hidden; }
-  .ex.feito { outline: 2px solid var(--ok); }
+  .obsficha { padding: 12px 14px; color: var(--sub); font-size: 14px; margin-bottom: 12px; white-space: pre-line; border-radius: 16px; }
+  .ex { margin-bottom: 14px; overflow: hidden; transition: box-shadow .3s; }
+  .ex.feito { box-shadow: 0 0 0 1.5px rgba(61,190,116,.75), 0 8px 26px rgba(61,190,116,.14); }
+  .ex.feito::before { display:none; }
+  .ex.pop { animation: pop .42s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes pop { 0% { transform: scale(.965); } 60% { transform: scale(1.012); } 100% { transform: scale(1); } }
+  .fotos { display:flex; gap: 2px; background:#fff; height: 176px; }
+  .fotos img { flex:1; min-width:0; object-fit: cover; height: 100%; }
+  .corpo { padding: 14px 14px 16px; }
   .topo { display:flex; align-items:center; gap:12px; }
-  .circ { flex:0 0 auto; width:34px; height:34px; border-radius:50%; border:2px solid var(--sub); background:transparent; color:transparent; font-size:18px; font-weight:800; line-height:1; padding:0; }
-  .circ.on { background:var(--ok); border-color:var(--ok); color:#fff; }
+  .circ { flex:0 0 auto; width:36px; height:36px; border-radius:50%; border:1.5px solid rgba(201,204,211,.55); background: rgba(255,255,255,.04); color:transparent; font-size:18px; font-weight:800; line-height:1; padding:0; transition: transform .15s; }
+  .circ:active { transform: scale(.9); }
+  .circ.on { background:var(--ok); border-color:var(--ok); color:#fff; box-shadow: 0 0 0 5px rgba(61,190,116,.16); }
+  .ex.pop .circ.on { animation: marca .5s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes marca { 0% { transform: scale(.4); } 100% { transform: scale(1); } }
+  .num { color: var(--ouro); font-weight: 800; margin-right: 7px; }
+  .nome { font-size: 18px; font-weight: 700; line-height: 1.2; }
   .ex.fechado .corpo { padding:14px; }
-  .ex.fechado .nome { font-size:17px; }
-  .crono { display:flex; align-items:center; gap:10px; margin: 0 16px 10px; background: var(--card); border:1px solid var(--linha); border-radius: 14px; padding: 10px 14px; }
-  .crono .rot { color: var(--sub); font-size: 13px; }
-  .crono .val { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ouro); }
-  .crono button { margin-left:auto; background: var(--ouro); color:#111; border:0; border-radius: 10px; padding: 8px 14px; font-weight: 700; font-size: 14px; }
-  .folha { position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 20; display: none; align-items: flex-end; }
-  .folha.on { display: flex; }
-  .folha .cx { width: 100%; background: var(--card); border-radius: 22px 22px 0 0; padding: 20px 16px calc(16px + env(safe-area-inset-bottom)); max-height: 92vh; overflow-y: auto; }
-  .folha h3 { margin: 0 0 4px; font-size: 20px; }
-  .folha textarea { width: 100%; min-height: 96px; margin-top: 8px; background: var(--card2); color: var(--txt); border: 1px solid var(--linha); border-radius: 12px; padding: 10px 12px; font: inherit; resize: vertical; }
+  .ex.fechado .nome { font-size:17px; color: var(--sub); }
+  .abrir { margin-left:auto; background:transparent; border:0; color:var(--sub); font-size:13px; padding:6px 0 6px 8px; }
+  .presc { display:flex; flex-wrap:wrap; gap:6px; margin-top: 10px; }
+  .presc span { background: rgba(255,255,255,.07); border-radius: 999px; padding: 4px 10px; font-size: 13px; color: var(--prata); }
+  .presc span b { color: var(--txt); font-weight: 700; }
+  .obs { font-size: 14px; margin-top: 10px; color: var(--txt); background: rgba(212,175,55,.10); border-left: 2px solid var(--ouro); border-radius: 0 10px 10px 0; padding: 8px 10px; }
+  .video { display:inline-flex; align-items:center; gap:8px; margin-top: 12px; color: var(--ouro2); text-decoration: none; font-weight: 600; font-size: 15px; }
+  .video i { display:inline-grid; place-items:center; width:26px; height:26px; border-radius:50%; background: var(--metal); color:#14100A; font-style:normal; font-size:11px; padding-left:2px; }
+  .series { margin-top: 12px; display: grid; gap: 8px; }
+  .serie { display: grid; grid-template-columns: 46px 1fr 1fr; gap: 8px; align-items: center; }
+  .chk { height: 46px; border-radius: 14px; border: 1.5px solid var(--linha); background: rgba(255,255,255,.05); color: var(--sub); font-weight: 700; font-size: 15px; transition: transform .12s; }
+  .chk:active { transform: scale(.92); }
+  .chk.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .serie label { display:flex; align-items:center; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.07); border-radius: 14px; padding: 0 12px; height: 46px; gap: 6px; color: var(--sub); font-size: 13px; }
+  .serie input { width: 100%; min-width: 0; background: transparent; border: 0; color: var(--txt); font-size: 17px; font-weight: 600; outline: none; }
+  .ultima { color: var(--sub); font-size: 12px; margin-top: 8px; }
+  .crono { display:flex; align-items:center; gap:14px; margin: 0 16px 12px; padding: 12px 16px; }
+  .crono .rot { color: var(--sub); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+  .crono .val { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; background: var(--metal); -webkit-background-clip: text; background-clip: text; color: transparent; line-height: 1.1; }
+  .prog { flex:1; min-width:0; }
+  .prog .txt { display:flex; justify-content:space-between; font-size: 12px; color: var(--sub); margin-bottom: 6px; }
+  .prog .txt b { color: var(--txt); }
+  .trilho { height: 8px; border-radius: 99px; background: rgba(255,255,255,.09); overflow:hidden; }
+  .trilho i { display:block; height:100%; border-radius: 99px; background: var(--metal); transition: width .5s cubic-bezier(.2,.8,.2,1); }
+  .rodape { position: fixed; left: 0; right: 0; bottom: 0; padding: 22px 16px calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgba(5,5,6,.92) 42%); z-index: 6; }
+  .btn { position: relative; width: 100%; height: 56px; border: 0; border-radius: 18px; background: var(--metal); color: #14100A; font-size: 17px; font-weight: 700; letter-spacing: .01em;
+    box-shadow: 0 10px 28px rgba(212,175,55,.30), inset 0 1px 0 rgba(255,255,255,.55); transition: transform .12s; }
+  .btn:active { transform: scale(.98); }
+  .btn:disabled { opacity: .5; }
+  .btn.encerrar { background: linear-gradient(180deg, #58D892, #2FA865); color: #fff; box-shadow: 0 10px 28px rgba(61,190,116,.28), inset 0 1px 0 rgba(255,255,255,.35); }
+  .btn.sec { background: var(--vidro2); color: var(--txt); box-shadow: none; border: 1px solid var(--linha); }
+  .descanso { position: fixed; left: 16px; right: 16px; bottom: calc(92px + env(safe-area-inset-bottom)); background: rgba(22,22,26,.86); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+    border: 1px solid rgba(212,175,55,.6); border-radius: 18px; padding: 10px 16px; display: none; align-items: center; gap: 12px; z-index: 7; box-shadow: 0 12px 30px rgba(0,0,0,.5); }
+  .descanso.on { display:flex; }
+  .descanso .t { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ouro2); line-height: 1; }
+  .descanso button { margin-left: auto; background: transparent; color: var(--txt); border: 1px solid var(--linha); border-radius: 12px; padding: 9px 14px; font-size: 14px; }
+  .msg { text-align: center; padding: 60px 24px; color: var(--sub); }
+  .msg h2 { color: var(--txt); font-weight: 700; }
+  .ok { color: var(--ok); }
+  .zap { display:inline-block; margin-top: 4px; color: var(--ouro2); text-decoration: none; font-weight: 600; border-bottom: 1px solid rgba(241,217,138,.4); padding-bottom: 2px; }
+  .faixa { margin: 0 16px 12px; padding: 12px 14px; display:flex; align-items:center; gap: 10px; font-size: 14px; border-radius: 16px; background: linear-gradient(180deg, rgba(212,175,55,.22), rgba(212,175,55,.08)); }
+  .faixa button { margin-left:auto; flex:0 0 auto; background: var(--metal); color:#14100A; border:0; border-radius: 12px; padding: 9px 14px; font-weight: 700; font-size: 14px; }
+  .faixa.fina { background: var(--vidro); color: var(--sub); }
+  /* folhas (encerrar treino, ficha de saúde) */
+  .folha { position: fixed; inset: 0; background: rgba(0,0,0,.66); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); z-index: 20; display: none; align-items: flex-end; }
+  .folha.on { display: flex; animation: aparece .2s ease-out; }
+  .folha.on .cx { animation: sobe .32s cubic-bezier(.2,.9,.2,1); }
+  @keyframes aparece { from { opacity: 0; } }
+  @keyframes sobe { from { transform: translateY(40px); opacity: .4; } }
+  .folha .cx { width: 100%; background: linear-gradient(180deg, rgba(34,34,40,.96), rgba(18,18,22,.98)); border-radius: 28px 28px 0 0; padding: 22px 16px calc(16px + env(safe-area-inset-bottom)); max-height: 92vh; overflow-y: auto; }
+  .folha h3 { margin: 0 0 4px; font-size: 21px; font-weight: 700; }
+  .folha textarea, .folha input[type=text] { width: 100%; margin-top: 8px; background: rgba(255,255,255,.06); color: var(--txt); border: 1px solid var(--linha); border-radius: 14px; padding: 11px 12px; font: inherit; }
+  .folha textarea { min-height: 96px; resize: vertical; }
+  .folha textarea:focus, .folha input[type=text]:focus { outline: none; border-color: var(--ouro); }
   .notas { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; margin-top: 8px; }
-  .nota { height: 40px; border-radius: 10px; border: 1px solid var(--linha); background: var(--card2); color: var(--txt); font-size: 15px; font-weight: 700; padding: 0; }
-  .nota.on { background: var(--ouro); border-color: var(--ouro); color: #111; }
-  .folha .lbl { margin-top: 14px; font-weight: 700; font-size: 15px; }
+  .nota { height: 42px; border-radius: 12px; border: 1px solid var(--linha); background: rgba(255,255,255,.06); color: var(--txt); font-size: 15px; font-weight: 700; padding: 0; }
+  .nota.on { background: var(--metal); border-color: transparent; color: #14100A; }
+  .folha .lbl { margin-top: 16px; font-weight: 600; font-size: 15px; }
   .folha .dica { color: var(--sub); font-size: 13px; }
-  .folha .acoes { display: grid; gap: 8px; margin-top: 16px; }
-  .btn.sec { background: transparent; color: var(--txt); border: 1px solid var(--linha); }
-  .faixa { margin: 0 16px 10px; background: #2A2410; border: 1px solid var(--ouro); border-radius: 14px; padding: 12px 14px; display:flex; align-items:center; gap: 10px; font-size: 14px; }
-  .faixa button { margin-left:auto; flex:0 0 auto; background: var(--ouro); color:#111; border:0; border-radius: 10px; padding: 8px 14px; font-weight: 700; font-size: 14px; }
-  .faixa.fina { background: var(--card); border-color: var(--linha); color: var(--sub); }
+  .folha .acoes { display: grid; gap: 8px; margin-top: 18px; }
   .perg { margin-top: 14px; font-size: 15px; }
   .simnao { display:grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
-  .simnao button { height: 42px; border-radius: 10px; border: 1px solid var(--linha); background: var(--card2); color: var(--txt); font-size: 15px; font-weight: 700; }
-  .simnao button.on { background: var(--ouro); border-color: var(--ouro); color: #111; }
-  .folha input[type=text] { width: 100%; margin-top: 6px; background: var(--card2); color: var(--txt); border: 1px solid var(--linha); border-radius: 12px; padding: 11px 12px; font: inherit; }
-  .abrir { margin-left:auto; background:transparent; border:0; color:var(--sub); font-size:13px; padding:6px 0 6px 8px; }
-  .fotos { display:flex; background:#fff; height: 170px; }
-  .fotos img { flex:1; min-width:0; object-fit: contain; height: 100%; }
-  .corpo { padding: 12px 14px 14px; }
-  .num { color: var(--ouro); font-weight: 800; margin-right: 6px; }
-  .nome { font-size: 18px; font-weight: 700; }
-  .presc { color: var(--sub); font-size: 14px; margin-top: 2px; }
-  .obs { font-size: 14px; margin-top: 6px; color: var(--txt); background: var(--card2); border-radius: 10px; padding: 8px 10px; }
-  .video { display:inline-block; margin-top: 8px; color: var(--ouro); text-decoration: none; font-weight: 600; font-size: 15px; }
-  .series { margin-top: 10px; display: grid; gap: 8px; }
-  .serie { display: grid; grid-template-columns: 44px 1fr 1fr; gap: 8px; align-items: center; }
-  .chk { height: 44px; border-radius: 12px; border: 2px solid var(--linha); background: var(--card2); color: var(--sub); font-weight: 700; font-size: 15px; }
-  .chk.on { background: var(--ok); border-color: var(--ok); color: #fff; }
-  .serie label { display:flex; align-items:center; background: var(--card2); border-radius: 12px; padding: 0 10px; height: 44px; gap: 6px; color: var(--sub); font-size: 13px; }
-  .serie input { width: 100%; min-width: 0; background: transparent; border: 0; color: var(--txt); font-size: 17px; outline: none; }
-  .ultima { color: var(--sub); font-size: 12px; margin-top: 6px; }
-  .rodape { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 30%); z-index: 6; }
-  .btn { width: 100%; height: 52px; border: 0; border-radius: 14px; background: var(--ouro); color: #111; font-size: 17px; font-weight: 800; }
-  .btn:disabled { opacity: .5; }
-  .btn.encerrar { background: var(--ok); color: #fff; }
-  .descanso { position: fixed; left: 16px; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); background: var(--card2); border: 1px solid var(--ouro); border-radius: 16px; padding: 10px 14px; display: none; align-items: center; gap: 12px; z-index: 7; }
-  .descanso.on { display:flex; }
-  .descanso .t { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ouro); }
-  .descanso button { margin-left: auto; background: transparent; color: var(--txt); border: 1px solid var(--linha); border-radius: 10px; padding: 8px 12px; font-size: 14px; }
-  .msg { text-align: center; padding: 60px 24px; color: var(--sub); }
-  .msg h2 { color: var(--txt); }
-  .ok { color: var(--ok); }
-  .zap { display:inline-block; margin-top: 12px; color: var(--ouro); }
-  .aviso { background: #3A2A10; color: #F5D58A; border-radius: 12px; padding: 10px 12px; font-size: 14px; margin: 0 16px 8px; }
+  .simnao button { height: 44px; border-radius: 12px; border: 1px solid var(--linha); background: rgba(255,255,255,.06); color: var(--txt); font-size: 15px; font-weight: 700; }
+  .simnao button.on { background: var(--metal); border-color: transparent; color: #14100A; }
+  /* tela final */
+  .fim { padding: 34px 16px 20px; text-align:center; }
+  .selo { width: 104px; height: 104px; margin: 6px auto 16px; border-radius: 50%; display:grid; place-items:center; background: var(--metal); color:#14100A; font-size: 50px; font-weight: 800;
+    box-shadow: 0 0 0 10px rgba(212,175,55,.14), 0 0 0 22px rgba(212,175,55,.06), 0 18px 44px rgba(212,175,55,.35); animation: selo .7s cubic-bezier(.2,1.5,.4,1); }
+  @keyframes selo { 0% { transform: scale(.3) rotate(-25deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+  .fim h2 { margin: 0; font-size: 27px; font-weight: 700; }
+  .fim .sub { font-size: 15px; margin-top: 4px; }
+  .stats { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 22px 0 14px; }
+  .stat { padding: 14px 10px; border-radius: 18px; animation: sobe .5s cubic-bezier(.2,.9,.2,1) backwards; }
+  .stat:nth-child(2) { animation-delay: .06s; } .stat:nth-child(3) { animation-delay: .12s; } .stat:nth-child(4) { animation-delay: .18s; }
+  .stat .v { font-size: 25px; font-weight: 800; background: var(--metal); -webkit-background-clip: text; background-clip: text; color: transparent; font-variant-numeric: tabular-nums; }
+  .stat .r { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--sub); margin-top: 2px; }
+  .resumo { padding: 14px; border-radius: 18px; text-align:left; font-size: 14px; color: var(--sub); margin-bottom: 16px; }
+  .resumo b { color: var(--txt); }
+  @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
 </style>
 <script src="config.js"></script>
 </head>
@@ -132,7 +197,7 @@
   var app = document.getElementById("app");
   var BASE = "https://firestore.googleapis.com/v1/projects/" + cfg.projeto + "/databases/(default)/documents/publico/" + token;
   var KEY = "?key=" + encodeURIComponent(cfg.chave || "");
-  var treino = null, fichaAtual = 0, ultimas = {}, inicio = Date.now(), abertos = {};
+  var treino = null, fichaAtual = 0, ultimas = {}, inicio = Date.now(), abertos = {}, ultimoMarcado = null;
 
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function erro(titulo, texto) { app.innerHTML = '<div class="msg"><h2>' + esc(titulo) + "</h2><p>" + esc(texto) + "</p></div>"; }
@@ -170,9 +235,9 @@
   function desenhar() {
     if (!treino) return;
     var h = "";
-    h += '<header><div class="personal">' + esc(treino.personal || "Seu personal") + "</div><h1>Treino de " + esc(treino.aluno) + "</h1>";
-    if (treino.troca) h += '<div class="sub">Troca do treino: ' + dataBr(treino.troca) + "</div>";
-    h += "</header>";
+    h += '<header><div class="logo" style="background-image:url(icone-192.png)"></div><div><div class="personal">' + esc(treino.personal || "Seu personal") + "</div><h1>Treino de " + esc(treino.aluno) + "</h1>";
+    if (treino.troca) h += '<div class="sub">Válido até ' + dataBr(treino.troca) + "</div>";
+    h += "</div></header>";
     var anamFeita = false; try { anamFeita = localStorage.getItem("la-" + token + "-anam") === "1"; } catch (e) {}
     if (treino.pedirAnamnese && !anamFeita) h += '<div class="faixa"><div>Seu personal pediu a sua <b>ficha de saúde</b>.</div><button id="abrirAnam">Responder</button></div>';
     if (instalar) h += '<div class="faixa fina"><div>Deixe o treino na tela do celular, como um app.</div><button id="instalarApp">Instalar</button></div>';
@@ -180,7 +245,14 @@
     if (!treino.fichas.length) { app.innerHTML = h + '<div class="msg"><h2>Treino a caminho</h2><p>Seu personal ainda não montou as fichas.</p></div>'; return; }
     var f = treino.fichas[fichaAtual], loc = lerLocal();
     h += '<nav class="abas">' + treino.fichas.map(function (x, i) { return '<button class="aba' + (i === fichaAtual ? " on" : "") + '" data-aba="' + i + '">' + esc(x.nome) + "</button>"; }).join("") + "</nav>";
-    h += '<div class="crono"><div><div class="rot">Tempo de treino</div><div class="val" id="crono">' + tempoTxt(loc._inicio) + "</div></div>" +
+    var nEx = f.itens.length, nFeitos = 0;
+    f.itens.forEach(function (it) {
+      var ok = true;
+      for (var q = 1; q <= Math.max(1, it.series); q++) if (!(loc[it.id + "_" + q] || {}).ok) ok = false;
+      if (ok) nFeitos++;
+    });
+    h += '<div class="crono"><div><div class="rot">Tempo</div><div class="val" id="crono">' + tempoTxt(loc._inicio) + "</div></div>" +
+      '<div class="prog"><div class="txt"><span>Exercícios</span><b>' + nFeitos + " de " + nEx + '</b></div><div class="trilho"><i style="width:' + (nEx ? Math.round(nFeitos / nEx * 100) : 0) + '%"></i></div></div>' +
       "</div>";
     h += "<main>";
     if (f.obs) h += '<div class="obsficha">' + esc(f.obs) + "</div>";
@@ -200,13 +272,14 @@
       var topo = '<div class="topo"><button class="circ' + (feito ? " on" : "") + '" data-ex="' + esc(it.id) + '" aria-label="' + (feito ? "Desmarcar exercício" : "Marcar exercício como concluído") + '">✓</button>' +
         '<div class="nome"><span class="num">' + (n + 1) + "</span>" + esc(it.nome) + "</div>" +
         (feito ? '<button class="abrir" data-abrir="' + esc(it.id) + '">' + (fechado ? "ver" : "fechar") + "</button>" : "") + "</div>";
-      h += '<section class="ex' + (feito ? " feito" : "") + (fechado ? " fechado" : "") + '">';
+      h += '<section class="ex' + (feito ? " feito" : "") + (fechado ? " fechado" : "") + (ultimoMarcado === it.id ? " pop" : "") + '">';
       if (fechado) { h += '<div class="corpo">' + topo + "</div></section>"; return; }
       if (it.fotos && it.fotos.length) h += '<div class="fotos">' + it.fotos.map(function (u) { return '<img loading="lazy" alt="" src="' + esc(u) + '" onerror="this.remove()">'; }).join("") + "</div>";
       h += '<div class="corpo">' + topo;
-      h += '<div class="presc">' + it.series + " × " + esc(it.reps || "—") + (it.descanso ? " · descanso " + it.descanso + "s" : "") + (it.carga ? " · " + esc(it.carga) + " kg" : "") + "</div>";
+      h += '<div class="presc"><span><b>' + it.series + "</b> séries</span><span><b>" + esc(it.reps || "—") + "</b> reps</span>" +
+        (it.carga ? "<span><b>" + esc(it.carga) + "</b> kg</span>" : "") + (it.descanso ? "<span>descanso <b>" + it.descanso + "s</b></span>" : "") + "</div>";
       if (it.obs) h += '<div class="obs">' + esc(it.obs) + "</div>";
-      if (it.video) h += '<a class="video" target="_blank" rel="noopener" href="' + esc(it.video) + '">▶ ' + (it.videoEscolhido ? "Ver vídeo da execução" : "Vídeos da execução no YouTube") + "</a>";
+      if (it.video) h += '<a class="video" target="_blank" rel="noopener" href="' + esc(it.video) + '"><i>▶</i>' + (it.videoEscolhido ? "Ver vídeo da execução" : "Vídeos da execução no YouTube") + "</a>";
       h += '<div class="series">' + linhas + "</div>";
       if (ultimas[it.id]) h += '<div class="ultima">Última vez: ' + esc(ultimas[it.id].carga) + " kg × " + esc(ultimas[it.id].reps) + "</div>";
       h += "</div></section>";
@@ -218,6 +291,7 @@
       ? '<button class="btn encerrar" id="concluir">Encerrar treino' + (total ? " (" + total + " séries)" : "") + "</button>"
       : '<button class="btn" id="iniciar">Iniciar treino</button>') + "</div>";
     app.innerHTML = h;
+    ultimoMarcado = null;
   }
 
   function duracaoTxt(ms) {
@@ -330,6 +404,7 @@
       }
       if (!l0._inicio) l0._inicio = Date.now();
       abertos[it0.id] = false;
+      if (!todas) ultimoMarcado = it0.id;
       salvarLocal(l0);
       var y1 = window.scrollY; desenhar(); window.scrollTo(0, y1); return;
     }
@@ -340,6 +415,11 @@
       v.carga = (document.querySelector('[data-carga="' + k + '"]') || {}).value || "";
       v.reps = (document.querySelector('[data-reps="' + k + '"]') || {}).value || "";
       loc[k] = v; salvarLocal(loc);
+      if (v.ok) {
+        var itk = k.slice(0, k.lastIndexOf("_")), fk = treino.fichas[fichaAtual], cheio = true;
+        fk.itens.forEach(function (x) { if (x.id === itk) for (var q = 1; q <= Math.max(1, x.series); q++) if (!(loc[x.id + "_" + q] || {}).ok) cheio = false; });
+        if (cheio) ultimoMarcado = itk;
+      }
       var y = window.scrollY; desenhar(); window.scrollTo(0, y);
       if (v.ok && +b.dataset.desc > 0) descanso(+b.dataset.desc);
       return;
@@ -420,9 +500,20 @@
       try { localStorage.removeItem(chaveLocal()); } catch (e) {}
       series.forEach(function (s) { if (s.carga) ultimas[s.itemId] = { carga: s.carga, reps: s.reps, quando: Date.now() }; });
       pararDescanso(); folha.classList.remove("on"); pendente = null;
-      app.innerHTML = '<div class="msg"><h2 class="ok">Treino encerrado! 💪</h2><p>' + series.length + " séries registradas em " + esc(f.nome) + ".<br>Tempo de treino: <b>" + duracaoTxt(reg.fim - reg.inicio) + "</b>." +
-        (reg.comentario ? "<br>Seu comentário foi enviado." : "") + "<br>Seu personal já recebe.</p>" +
-        '<button class="btn" id="voltar" style="margin-top:20px">Voltar ao treino</button></div>';
+      var exs = {}, volume = 0;
+      series.forEach(function (x) {
+        exs[x.itemId] = 1;
+        var kg = parseFloat(String(x.carga).replace(",", ".")), rp = parseInt(String(x.reps), 10);
+        if (kg > 0 && rp > 0) volume += kg * rp;
+      });
+      var nExs = Object.keys(exs).length;
+      var stats = [[duracaoTxt(reg.fim - reg.inicio), "Tempo"], [nExs, nExs === 1 ? "Exercício" : "Exercícios"], [series.length, "Séries"],
+        volume > 0 ? [Math.round(volume).toLocaleString("pt-BR") + " kg", "Carga total"] : (reg.esforco ? [reg.esforco + "/10", "Esforço"] : ["✓", "Registrado"])];
+      app.innerHTML = '<div class="fim"><div class="selo">✓</div><h2>Treino concluído</h2><div class="sub">' + esc(f.nome) + " · parabéns, " + esc(treino.aluno) + "!</div>" +
+        '<div class="stats">' + stats.map(function (x) { return '<div class="stat"><div class="v">' + x[0] + '</div><div class="r">' + x[1] + "</div></div>"; }).join("") + "</div>" +
+        '<div class="resumo">' + (reg.comentario ? "Seu comentário foi enviado. " : "") + "<b>" + esc(treino.personal || "Seu personal") + "</b> já recebeu o registro deste treino." +
+        (reg.esforco && volume > 0 ? " Esforço informado: <b>" + reg.esforco + "/10</b>." : "") + "</div>" +
+        '<button class="btn" id="voltar">Voltar ao treino</button></div>';
       document.getElementById("voltar").onclick = function () { desenhar(); window.scrollTo(0, 0); };
     }).catch(function () {
       b.disabled = false; b.textContent = "Sem internet: toque para tentar de novo";
