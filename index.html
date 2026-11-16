@@ -64,6 +64,9 @@
   @keyframes pop { 0% { transform: scale(.965); } 60% { transform: scale(1.012); } 100% { transform: scale(1); } }
   .fotos { display:flex; gap: 2px; background:#fff; height: 176px; }
   .fotos img { flex:1; min-width:0; object-fit: cover; height: 100%; }
+  .palco { display:flex; justify-content:center; margin-top:12px; border-radius:16px; overflow:hidden; background:
+    radial-gradient(90% 80% at 50% 0%, rgba(212,175,55,.22), transparent 62%), #070708; }
+  .demo { display:block; width:min(62vw, 230px); aspect-ratio:9/16; height:auto; max-height:46vh; object-fit:contain; background:#000; }
   .corpo { padding: 14px 14px 16px; }
   .topo { display:flex; align-items:center; gap:12px; }
   .circ { flex:0 0 auto; width:36px; height:36px; border-radius:50%; border:1.5px solid rgba(201,204,211,.55); background: rgba(255,255,255,.04); color:transparent; font-size:18px; font-weight:800; line-height:1; padding:0; transition: transform .15s; }
@@ -200,6 +203,13 @@
   var treino = null, fichaAtual = 0, ultimas = {}, inicio = Date.now(), abertos = {}, ultimoMarcado = null;
 
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function ehMp4(url) {
+    var s = String(url || "").trim();
+    if (!s) return false;
+    var path = s.split("#")[0].split("?")[0];
+    try { path = new URL(s, location.href).pathname; } catch (e) {}
+    return /\.mp4$/i.test(path);
+  }
   function erro(titulo, texto) { app.innerHTML = '<div class="msg"><h2>' + esc(titulo) + "</h2><p>" + esc(texto) + "</p></div>"; }
   function chaveLocal() { return "la-" + token + "-" + (treino ? treino.fichas[fichaAtual].id : ""); }
   function lerLocal() { try { return JSON.parse(localStorage.getItem(chaveLocal()) || "{}"); } catch (e) { return {}; } }
@@ -274,12 +284,14 @@
         (feito ? '<button class="abrir" data-abrir="' + esc(it.id) + '">' + (fechado ? "ver" : "fechar") + "</button>" : "") + "</div>";
       h += '<section class="ex' + (feito ? " feito" : "") + (fechado ? " fechado" : "") + (ultimoMarcado === it.id ? " pop" : "") + '">';
       if (fechado) { h += '<div class="corpo">' + topo + "</div></section>"; return; }
-      if (it.fotos && it.fotos.length) h += '<div class="fotos">' + it.fotos.map(function (u) { return '<img loading="lazy" alt="" src="' + esc(u) + '" onerror="this.remove()">'; }).join("") + "</div>";
+      var videoMp4 = it.video && ehMp4(it.video);
+      if (!videoMp4 && it.fotos && it.fotos.length) h += '<div class="fotos">' + it.fotos.map(function (u) { return '<img loading="lazy" alt="" src="' + esc(u) + '" onerror="this.remove()">'; }).join("") + "</div>";
       h += '<div class="corpo">' + topo;
       h += '<div class="presc"><span><b>' + it.series + "</b> séries</span><span><b>" + esc(it.reps || "—") + "</b> reps</span>" +
         (it.carga ? "<span><b>" + esc(it.carga) + "</b> kg</span>" : "") + (it.descanso ? "<span>descanso <b>" + it.descanso + "s</b></span>" : "") + "</div>";
       if (it.obs) h += '<div class="obs">' + esc(it.obs) + "</div>";
-      if (it.video) h += '<a class="video" target="_blank" rel="noopener" href="' + esc(it.video) + '"><i>▶</i>' + (it.videoEscolhido ? "Ver vídeo da execução" : "Vídeos da execução no YouTube") + "</a>";
+      if (videoMp4) h += '<div class="palco"><video class="demo" controls playsinline preload="none" loop muted src="' + esc(it.video) + '" aria-label="Demonstração de ' + esc(it.nome) + '"></video></div>';
+      if (it.video && !videoMp4) h += '<a class="video" target="_blank" rel="noopener" href="' + esc(it.video) + '"><i>▶</i>' + (it.videoEscolhido ? "Ver vídeo da execução" : "Vídeos da execução no YouTube") + "</a>";
       h += '<div class="series">' + linhas + "</div>";
       if (ultimas[it.id]) h += '<div class="ultima">Última vez: ' + esc(ultimas[it.id].carga) + " kg × " + esc(ultimas[it.id].reps) + "</div>";
       h += "</div></section>";
