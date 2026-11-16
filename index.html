@@ -249,10 +249,64 @@
       method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: "grant_type=refresh_token&refresh_token=" + encodeURIComponent(sess.refresh)
     }).then(function (r) {
-      if (r.status === 400 || r.status === 401 || r.status === 403) { gravarSess(null); throw new Error("login"); }
+      if (r.status === 400 || r.status === 401 || r.status === 403) return null;
       if (!r.ok) throw new Error("rede");
       return r.json();
-    }).then(function (d) { gravarSess(sessaoDe(d)); return sess.idToken; });
+    }).then(function (d) {
+      if (d) { gravarSess(sessaoDe(d)); return sess.idToken; }
+      // sessão caiu: entra de novo com a chave deste aparelho
+      var ch = lerChave();
+      if (!ch) { gravarSess(null); throw new Error("login"); }
+      return entrarFb(ch.email, ch.senha).then(function (x) {
+        if (!x.ok) { gravarSess(null); throw new Error("desconectado"); }
+        gravarSess(sessaoDe(x.d)); return sess.idToken;
+      });
+    });
+  }
+  // ---- aparelho: o 1º celular que entra fica preso ao login ----
+  function lerChave() { try { return JSON.parse(localStorage.getItem("la-chave") || "null"); } catch (e) { return null; } }
+  function gravarChave(c) { try { localStorage.setItem("la-chave", JSON.stringify(c)); } catch (e) {} }
+  function entrarFb(email, senha) {
+    return fetch("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword" + KEY, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, password: senha, returnSecureToken: true })
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); });
+  }
+  function senhaAleatoria() {
+    var a = new Uint8Array(24); (window.crypto || window.msCrypto).getRandomValues(a);
+    return Array.prototype.map.call(a, function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+  }
+  function descAparelho() {
+    var u = navigator.userAgent || "";
+    var base = /Android/.test(u) ? "Android" : /iPhone/.test(u) ? "iPhone" : /iPad/.test(u) ? "iPad" : /Windows/.test(u) ? "Computador (Windows)" : /Mac/.test(u) ? "Mac" : "Navegador";
+    var m = u.match(/Android [\d.]+;\s*([^;)]+)/);
+    var modelo = m && m[1].trim() !== "K" ? m[1].replace(/ Build.*/, "").trim() : "";
+    var ua = navigator.userAgentData;
+    var p = ua && ua.getHighEntropyValues ? ua.getHighEntropyValues(["model"]).then(function (v) { return v.model || modelo; }, function () { return modelo; }) : Promise.resolve(modelo);
+    return p.then(function (md) { return md ? base + " " + md : base; });
+  }
+  /** 1º login neste aparelho: grava o aparelho e troca a senha por uma chave que só este celular conhece. */
+  function vincular(d, email) {
+    var chave = senhaAleatoria(), hoje = new Date();
+    var quando = ("0" + hoje.getDate()).slice(-2) + "/" + ("0" + (hoje.getMonth() + 1)).slice(-2) + "/" + hoje.getFullYear();
+    return descAparelho().then(function (ap) {
+      return fetch(DOCS + "acesso/" + d.localId + "/aparelho/chave" + KEY, {
+        method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer " + d.idToken },
+        body: JSON.stringify({ fields: { senha: { stringValue: chave }, quando: { stringValue: quando }, aparelho: { stringValue: ap } } })
+      });
+    }).then(function (r) {
+      if (!r.ok) throw new Error("Não consegui registrar este aparelho. Tente de novo.");
+      return fetch("https://identitytoolkit.googleapis.com/v1/accounts:update" + KEY, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken: d.idToken, password: chave, returnSecureToken: true })
+      });
+    }).then(function (r) {
+      if (!r.ok) throw new Error("Não consegui registrar este aparelho. Tente de novo.");
+      return r.json();
+    }).then(function (n) {
+      gravarChave({ email: email, senha: chave });
+      gravarSess(sessaoDe(n));
+    });
   }
   /** fetch no Firestore com o login do aluno */
   function api(url, opts) {
@@ -290,17 +344,20 @@
       var email = usuarioEmail(u);
       if (!email || !sn) { er.textContent = "Preencha usuário e senha."; return; }
       er.textContent = ""; b.disabled = true; b.textContent = "Entrando…";
-      fetch("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword" + KEY, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email, password: sn, returnSecureToken: true })
-      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); }).then(function (x) {
-        if (!x.ok) {
-          var m = (x.d && x.d.error && x.d.error.message) || "";
-          if (/TOO_MANY_ATTEMPTS/.test(m)) throw new Error("Muitas tentativas. Espere alguns minutos e tente de novo.");
-          if (/USER_DISABLED/.test(m)) throw new Error("Este acesso foi desativado. Fale com o seu personal.");
-          throw new Error("Usuário ou senha errados.");
-        }
-        gravarSess(sessaoDe(x.d));
+      var ch = lerChave();
+      var tentarChave = ch && ch.email === email ? entrarFb(email, ch.senha) : Promise.resolve({ ok: false });
+      tentarChave.then(function (x) {
+        if (x.ok) { gravarSess(sessaoDe(x.d)); return; }     // aparelho já registrado
+        return entrarFb(email, sn).then(function (y) {
+          if (!y.ok) {
+            var m = (y.d && y.d.error && y.d.error.message) || "";
+            if (/TOO_MANY_ATTEMPTS/.test(m)) throw new Error("Muitas tentativas. Espere alguns minutos e tente de novo.");
+            if (/USER_DISABLED/.test(m)) throw new Error("Este acesso foi desativado. Fale com o seu personal.");
+            throw new Error("Usuário ou senha errados. Se você já entrou em outro aparelho, peça ao seu personal para liberar este.");
+          }
+          return vincular(y.d, email);
+        });
+      }).then(function () {
         entrar();
       }).catch(function (e2) {
         b.disabled = false; b.textContent = "Entrar";
@@ -321,7 +378,8 @@
       BASE = DOCS + "publico/" + token;
       carregar();
     }).catch(function (e) {
-      if (e.message === "login") telaLogin("Sua sessão terminou. Entre de novo.");
+      if (e.message === "desconectado") telaLogin("Este aparelho foi desconectado. Peça ao seu personal para liberar o acesso de novo.");
+      else if (e.message === "login") telaLogin("Sua sessão terminou. Entre de novo.");
       else if (e.message === "semacesso") { gravarSess(null); telaLogin("Seu treino ainda não foi liberado. Fale com o seu personal."); }
       else { erro("Sem conexão", "Não consegui carregar o treino. Verifique a internet e toque para tentar de novo."); app.onclick = function () { app.onclick = null; entrar(); }; }
     });
@@ -345,6 +403,7 @@
         desenhar();
       }).catch(function () {});
     }).catch(function (e) {
+      if (e.message === "desconectado") { telaLogin("Este aparelho foi desconectado. Peça ao seu personal para liberar o acesso de novo."); return; }
       if (e.message === "login") { telaLogin("Sua sessão terminou. Entre de novo."); return; }
       if (e.message === "desativado") { gravarSess(null); telaLogin("Este treino não está mais disponível. Fale com o seu personal."); return; }
       else erro("Sem conexão", "Não consegui carregar o treino. Verifique a internet e toque para tentar de novo.");

@@ -43,6 +43,12 @@ jobs:
             curl -s -o /dev/null -w "HTTP %{http_code}\n" -X POST -H "$J" -d '{"fields":{"dados":{"stringValue":"{\"series\":[]}"},"criadoEm":{"stringValue":"1"}}}' "$B/publico/$T/registros?key=$K"
             echo "== 10 aluno tenta alterar treino (esperado 403)"
             curl -s -o /dev/null -w "HTTP %{http_code}\n" -X PATCH -H "$J" -H "Authorization: Bearer $IDA" -d '{"fields":{"dono":{"stringValue":"hacker"}}}' "$B/publico/$T?key=$K"
+            echo "== 10b aluno grava o aparelho e o personal lê (esperado 200 200)"
+            curl -s -o /dev/null -w "HTTP %{http_code}\n" -X PATCH -H "$J" -H "Authorization: Bearer $IDA" -d '{"fields":{"senha":{"stringValue":"x"}}}' "$B/acesso/$UIDA/aparelho/chave?key=$K"
+            curl -s -o /dev/null -w "HTTP %{http_code}\n" -H "Authorization: Bearer $ID" "$B/acesso/$UIDA/aparelho/chave?key=$K"
+            echo "== 10c sem login lê o aparelho (esperado 403)"
+            curl -s -o /dev/null -w "HTTP %{http_code}\n" "$B/acesso/$UIDA/aparelho/chave?key=$K"
+            curl -s -o /dev/null -w "limpa aparelho %{http_code}\n" -X DELETE -H "Authorization: Bearer $ID" "$B/acesso/$UIDA/aparelho/chave?key=$K"
             echo "== 11 dono lista registros (esperado 1)"
             L=$(curl -s -H "Authorization: Bearer $ID" "$B/publico/$T/registros?key=$K"); echo "$L" | jq '.documents | length'
             echo "== 12 limpeza"

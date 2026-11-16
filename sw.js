@@ -1,6 +1,6 @@
 // Guarda a "casca" da página para abrir rápido; os dados do treino sempre vêm da internet.
 // Vídeos MP4 e pedidos Range passam direto para a rede (não entram no cache).
-var CACHE = "la-aluno-v4";
+var CACHE = "la-aluno-v5";
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(["./", "config.js", "icone-192.png", "outfit_regular.ttf", "outfit_semibold.ttf", "outfit_bold.ttf"]); }).catch(function () {}));
   self.skipWaiting();
