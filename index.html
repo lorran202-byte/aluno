@@ -155,6 +155,19 @@
   .stat .r { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--sub); margin-top: 2px; }
   .resumo { padding: 14px; border-radius: 18px; text-align:left; font-size: 14px; color: var(--sub); margin-bottom: 16px; }
   .resumo b { color: var(--txt); }
+  /* login */
+  .login { margin: 9vh 16px 0; padding: 30px 20px 22px; border-radius: 26px; text-align: center; display: grid; gap: 10px; }
+  .logo.grande { width: 84px; height: 84px; margin: 0 auto 6px; }
+  .login h1 { margin: 0; }
+  .login .sub { margin-bottom: 8px; }
+  .campo { position: relative; display: block; text-align: left; background: rgba(255,255,255,.06); border: 1px solid var(--linha); border-radius: 16px; padding: 8px 14px 6px; }
+  .campo:focus-within { border-color: var(--ouro); }
+  .campo span { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--sub); }
+  .campo input { width: 100%; background: transparent; border: 0; outline: none; color: var(--txt); font-size: 18px; padding: 4px 0 2px; }
+  .campo .olho { position: absolute; right: 10px; bottom: 10px; background: transparent; border: 0; color: var(--ouro2); font-size: 13px; font-weight: 600; }
+  .login .erro { color: var(--erro); font-size: 14px; min-height: 18px; }
+  .login .esqueci { margin: 4px 0 0; }
+  .sair { margin-left: auto; align-self: flex-start; background: var(--vidro2); color: var(--sub); border: 1px solid var(--linha); border-radius: 12px; padding: 7px 12px; font-size: 13px; }
   @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
 </style>
 <script src="config.js"></script>
@@ -192,14 +205,11 @@
 (function () {
   "use strict";
   var cfg = window.LA_CONFIG || {};
-  var hash = decodeURIComponent(location.hash.replace(/^#/, ""));
-  var partes = hash.split("&");
-  var token = partes[0];
-  try { if (token) localStorage.setItem("la-token", token); else token = localStorage.getItem("la-token") || ""; } catch (e) {}
-  partes.slice(1).forEach(function (p) { var kv = p.split("="); if (kv[0] === "p") cfg.projeto = kv[1]; if (kv[0] === "k") cfg.chave = kv[1]; });
   var app = document.getElementById("app");
-  var BASE = "https://firestore.googleapis.com/v1/projects/" + cfg.projeto + "/databases/(default)/documents/publico/" + token;
+  var DOCS = "https://firestore.googleapis.com/v1/projects/" + cfg.projeto + "/databases/(default)/documents/";
   var KEY = "?key=" + encodeURIComponent(cfg.chave || "");
+  var DOMINIO = "alunos.laconsultoria.app";
+  var token = "", BASE = "";
   var treino = null, fichaAtual = 0, ultimas = {}, inicio = Date.now(), abertos = {}, ultimoMarcado = null;
 
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -216,10 +226,109 @@
   function salvarLocal(d) { try { localStorage.setItem(chaveLocal(), JSON.stringify(d)); } catch (e) {} }
   function dataBr(iso) { var p = (iso || "").split("-"); return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : iso; }
 
-  if (!token || !cfg.projeto || !cfg.chave) { erro("Link incompleto", "Peça um novo link para o seu personal."); return; }
+  if (!cfg.projeto || !cfg.chave) { erro("Página sem configuração", "Fale com o seu personal."); return; }
+
+  // ---------------- login do aluno ----------------
+  var sess = null;
+  try { sess = JSON.parse(localStorage.getItem("la-sessao") || "null"); } catch (e) {}
+  function gravarSess(s) { sess = s; try { if (s) localStorage.setItem("la-sessao", JSON.stringify(s)); else localStorage.removeItem("la-sessao"); } catch (e) {} }
+  function usuarioEmail(u) {
+    var n = String(u || "").trim().toLowerCase();
+    if (n.normalize) n = n.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    n = n.replace(/[^a-z0-9._-]/g, "");
+    return n ? n + "@" + DOMINIO : "";
+  }
+  function sessaoDe(d) {
+    return { uid: d.localId || d.user_id, idToken: d.idToken || d.id_token, refresh: d.refreshToken || d.refresh_token,
+      expira: Date.now() + ((parseInt(d.expiresIn || d.expires_in, 10) || 3600) - 120) * 1000 };
+  }
+  function idToken() {
+    if (sess && sess.idToken && sess.expira > Date.now()) return Promise.resolve(sess.idToken);
+    if (!sess || !sess.refresh) return Promise.reject(new Error("login"));
+    return fetch("https://securetoken.googleapis.com/v1/token" + KEY, {
+      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "grant_type=refresh_token&refresh_token=" + encodeURIComponent(sess.refresh)
+    }).then(function (r) {
+      if (r.status === 400 || r.status === 401 || r.status === 403) { gravarSess(null); throw new Error("login"); }
+      if (!r.ok) throw new Error("rede");
+      return r.json();
+    }).then(function (d) { gravarSess(sessaoDe(d)); return sess.idToken; });
+  }
+  /** fetch no Firestore com o login do aluno */
+  function api(url, opts) {
+    return idToken().then(function (t) {
+      opts = opts || {};
+      opts.headers = opts.headers || {};
+      opts.headers.Authorization = "Bearer " + t;
+      return fetch(url, opts);
+    });
+  }
+  function sair() {
+    gravarSess(null); token = ""; BASE = ""; treino = null;
+    try { localStorage.removeItem("la-token"); } catch (e) {}
+    telaLogin("");
+  }
+  function telaLogin(aviso, usuario) {
+    document.title = "Área do aluno";
+    app.innerHTML = '<form class="login vidro" id="formLogin" autocomplete="on">' +
+      '<div class="logo grande" style="background-image:url(icone-192.png)"></div>' +
+      '<div class="personal">L.A. Consultoria</div><h1>Área do aluno</h1>' +
+      '<div class="sub">Entre com o usuário e a senha que o seu personal mandou.</div>' +
+      '<label class="campo"><span>Usuário</span><input id="lgUsuario" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" value="' + esc(usuario || "") + '"></label>' +
+      '<label class="campo"><span>Senha</span><input id="lgSenha" name="password" type="password" autocomplete="current-password"><button type="button" class="olho" id="lgOlho">ver</button></label>' +
+      '<div class="erro" id="lgErro">' + esc(aviso || "") + '</div>' +
+      '<button class="btn" id="lgEntrar" type="submit">Entrar</button>' +
+      '<div class="sub esqueci">Esqueceu a senha? Peça uma nova para o seu personal.</div></form>';
+    var f = document.getElementById("formLogin");
+    document.getElementById("lgOlho").onclick = function () {
+      var i = document.getElementById("lgSenha"); i.type = i.type === "password" ? "text" : "password"; this.textContent = i.type === "password" ? "ver" : "ocultar";
+    };
+    f.onsubmit = function (e) {
+      e.preventDefault();
+      var u = document.getElementById("lgUsuario").value, sn = document.getElementById("lgSenha").value;
+      var er = document.getElementById("lgErro"), b = document.getElementById("lgEntrar");
+      var email = usuarioEmail(u);
+      if (!email || !sn) { er.textContent = "Preencha usuário e senha."; return; }
+      er.textContent = ""; b.disabled = true; b.textContent = "Entrando…";
+      fetch("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword" + KEY, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email, password: sn, returnSecureToken: true })
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); }).then(function (x) {
+        if (!x.ok) {
+          var m = (x.d && x.d.error && x.d.error.message) || "";
+          if (/TOO_MANY_ATTEMPTS/.test(m)) throw new Error("Muitas tentativas. Espere alguns minutos e tente de novo.");
+          if (/USER_DISABLED/.test(m)) throw new Error("Este acesso foi desativado. Fale com o seu personal.");
+          throw new Error("Usuário ou senha errados.");
+        }
+        gravarSess(sessaoDe(x.d));
+        entrar();
+      }).catch(function (e2) {
+        b.disabled = false; b.textContent = "Entrar";
+        er.textContent = e2 && e2.message && e2.message !== "Failed to fetch" ? e2.message : "Sem internet. Tente de novo.";
+      });
+    };
+  }
+  /** depois do login: descobre qual treino é deste aluno */
+  function entrar() {
+    app.innerHTML = '<div class="msg">Carregando seu treino…</div>';
+    api(DOCS + "acesso/" + sess.uid + KEY).then(function (r) {
+      if (r.status === 404 || r.status === 403) throw new Error("semacesso");
+      if (!r.ok) throw new Error("rede");
+      return r.json();
+    }).then(function (d) {
+      token = (d.fields && d.fields.token && d.fields.token.stringValue) || "";
+      if (!token) throw new Error("semacesso");
+      BASE = DOCS + "publico/" + token;
+      carregar();
+    }).catch(function (e) {
+      if (e.message === "login") telaLogin("Sua sessão terminou. Entre de novo.");
+      else if (e.message === "semacesso") { gravarSess(null); telaLogin("Seu treino ainda não foi liberado. Fale com o seu personal."); }
+      else { erro("Sem conexão", "Não consegui carregar o treino. Verifique a internet e toque para tentar de novo."); app.onclick = function () { app.onclick = null; entrar(); }; }
+    });
+  }
 
   function carregar() {
-    fetch(BASE + KEY).then(function (r) {
+    api(BASE + KEY).then(function (r) {
       if (r.status === 404 || r.status === 403) throw new Error("desativado");
       if (!r.ok) throw new Error("rede");
       return r.json();
@@ -229,14 +338,15 @@
       try { fichaAtual = Math.min(parseInt(localStorage.getItem("la-" + token + "-aba") || "0", 10) || 0, treino.fichas.length - 1); } catch (e) {}
       if (fichaAtual < 0) fichaAtual = 0;
       desenhar();
-      return fetch(BASE + "/registros" + KEY + "&pageSize=100").then(function (r) { return r.ok ? r.json() : {}; }).then(function (lst) {
+      return api(BASE + "/registros" + KEY + "&pageSize=100").then(function (r) { return r.ok ? r.json() : {}; }).then(function (lst) {
         (lst.documents || []).map(function (d) { try { return JSON.parse(d.fields.dados.stringValue); } catch (e) { return null; } })
           .filter(Boolean).sort(function (a, b) { return a.fim - b.fim; })
           .forEach(function (r) { (r.series || []).forEach(function (s) { if (s.carga) ultimas[s.itemId] = { carga: s.carga, reps: s.reps, quando: r.fim }; }); });
         desenhar();
       }).catch(function () {});
     }).catch(function (e) {
-      if (e.message === "desativado") erro("Link desativado", "Este treino não está mais disponível. Fale com o seu personal.");
+      if (e.message === "login") { telaLogin("Sua sessão terminou. Entre de novo."); return; }
+      if (e.message === "desativado") { gravarSess(null); telaLogin("Este treino não está mais disponível. Fale com o seu personal."); return; }
       else erro("Sem conexão", "Não consegui carregar o treino. Verifique a internet e toque para tentar de novo.");
       app.onclick = function () { app.onclick = null; carregar(); };
     });
@@ -247,7 +357,7 @@
     var h = "";
     h += '<header><div class="logo" style="background-image:url(icone-192.png)"></div><div><div class="personal">' + esc(treino.personal || "Seu personal") + "</div><h1>Treino de " + esc(treino.aluno) + "</h1>";
     if (treino.troca) h += '<div class="sub">Válido até ' + dataBr(treino.troca) + "</div>";
-    h += "</div></header>";
+    h += '</div><button class="sair" id="sair">Sair</button></header>';
     var anamFeita = false; try { anamFeita = localStorage.getItem("la-" + token + "-anam") === "1"; } catch (e) {}
     if (treino.pedirAnamnese && !anamFeita) h += '<div class="faixa"><div>Seu personal pediu a sua <b>ficha de saúde</b>.</div><button id="abrirAnam">Responder</button></div>';
     if (instalar) h += '<div class="faixa fina"><div>Deixe o treino na tela do celular, como um app.</div><button id="instalarApp">Instalar</button></div>';
@@ -361,7 +471,7 @@
       var reg = { v: 1, tipo: "anamnese", parq: respParq, doencas: v("an_doencas"), medicamentos: v("an_medicamentos"), cirurgias: v("an_cirurgias"),
         lesoes: v("an_lesoes"), fumante: fuma, bebida: v("an_bebida"), sono: v("an_sono"), atividadeAtual: v("an_atividade"), obs: v("an_obs") };
       b.disabled = true; b.textContent = "Enviando…";
-      fetch(BASE + "/registros" + KEY, {
+      api(BASE + "/registros" + KEY, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fields: { dados: { stringValue: JSON.stringify(reg) }, criadoEm: { stringValue: String(Date.now()) } } })
       }).then(function (r) {
@@ -380,6 +490,7 @@
   app.addEventListener("click", function (e) {
     var b = e.target.closest("button");
     if (!b) return;
+    if (b.id === "sair") { if (confirm("Sair da sua conta neste celular?")) sair(); return; }
     if (b.dataset.aba != null) {
       fichaAtual = parseInt(b.dataset.aba, 10);
       try { localStorage.setItem("la-" + token + "-aba", fichaAtual); } catch (x) {}
@@ -504,7 +615,7 @@
     var reg = { v: 1, fichaId: f.id, fichaNome: f.nome, inicio: pendente.inicio, fim: Date.now(), series: series,
       comentario: document.getElementById("comentario").value.trim().slice(0, 600), esforco: esforco };
     b.disabled = true; b.textContent = "Enviando…";
-    fetch(BASE + "/registros" + KEY, {
+    api(BASE + "/registros" + KEY, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields: { dados: { stringValue: JSON.stringify(reg) }, criadoEm: { stringValue: String(Date.now()) } } })
     }).then(function (r) {
@@ -532,7 +643,7 @@
     });
   };
 
-  carregar();
+  if (sess && sess.refresh) entrar(); else telaLogin("");
 })();
 </script>
 </body>
