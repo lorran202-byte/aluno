@@ -1,0 +1,38 @@
+== 1 criar contas temporárias (personal e aluno)
+personal: ok | aluno: ok
+== 2 backup do dono (esperado 200)
+HTTP 200
+== 3 backup de outro uid (esperado 403)
+HTTP 403
+== 4 publicar treino ligado ao aluno (esperado 200)
+HTTP 200
+== 5 gravar acesso do aluno (esperado 200)
+HTTP 200
+== 6 aluno logado lê o acesso e o treino (esperado 200 200)
+HTTP 200
+HTTP 200
+== 7 sem login lê o treino (esperado 403)
+HTTP 403
+== 8 aluno logado registra série (esperado 200)
+HTTP 200
+== 9 sem login registra série (esperado 403)
+HTTP 403
+== 10 aluno tenta alterar treino (esperado 403)
+HTTP 403
+== 10b aluno grava o aparelho e o personal lê (esperado 200 200)
+HTTP 403
+HTTP 403
+== 10c sem login lê o aparelho (esperado 403)
+HTTP 403
+limpa aparelho 403
+== 11 dono lista registros (esperado 1)
+1
+== 12 limpeza
+reg 200
+treino 200
+acesso 200
+backup 200
+conta aluno 200
+conta personal 200
+== 13 página
+HTTP 200
